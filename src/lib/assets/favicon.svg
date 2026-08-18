@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" width="100" height="120">
+  <defs>
+    <!-- Background Gradients -->
+    <linearGradient id="shieldBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="redHalf" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#b91c1c"/>
+    </linearGradient>
+    <linearGradient id="goldStar" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="seaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="mountainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Shield Border -->
+  <path d="M 50,4 C 65,4 85,2 94,14 C 94,55 88,95 50,116 C 12,95 6,55 6,14 C 15,2 35,4 50,4 Z" fill="url(#shieldBorder)"/>
+
+  <!-- Inner Shield White Base -->
+  <path d="M 50,8 C 63,8 81,6 89,17 C 89,52 84,89 50,109 C 16,89 11,52 11,17 C 19,6 37,8 50,8 Z" fill="#ffffff"/>
+
+  <!-- Red-White Diagonal Cut (Merah Putih) -->
+  <clipPath id="innerShieldClip">
+    <path d="M 50,8 C 63,8 81,6 89,17 C 89,52 84,89 50,109 C 16,89 11,52 11,17 C 19,6 37,8 50,8 Z"/>
+  </clipPath>
+
+  <g clip-path="url(#innerShieldClip)">
+    <!-- Red Top-Left Polygon -->
+    <polygon points="10,8 90,8 90,20 28,110 10,110" fill="url(#redHalf)"/>
+
+    <!-- Mountain Silhouette -->
+    <path d="M 10,60 Q 30,35 50,55 Q 70,35 90,60 L 90,75 L 10,75 Z" fill="url(#mountainGradient)"/>
+
+    <!-- Ocean Blue Wave -->
+    <path d="M 10,68 Q 30,60 50,66 Q 70,60 90,68 L 90,80 L 10,80 Z" fill="url(#seaGradient)"/>
+
+    <!-- Coconut Palm Tree in Center -->
+    <!-- Trunk -->
+    <path d="M 48,102 Q 49,70 50,56 L 52,56 Q 51,70 52,102 Z" fill="#44403c"/>
+    <!-- Leaves -->
+    <path d="M 50,55 Q 35,45 28,58 Q 38,52 50,56" fill="#15803d"/>
+    <path d="M 50,55 Q 65,45 72,58 Q 62,52 50,56" fill="#15803d"/>
+    <path d="M 50,55 Q 38,36 34,46 Q 44,44 50,55" fill="#16a34a"/>
+    <path d="M 50,55 Q 62,36 66,46 Q 56,44 50,55" fill="#16a34a"/>
+    <path d="M 50,55 Q 50,34 50,42 Q 50,48 50,55" fill="#22c55e"/>
+
+    <!-- Golden Star at Top -->
+    <polygon points="50,16 53,23 60,23 54,27 57,34 50,29 43,34 46,27 40,23 47,23" fill="url(#goldStar)"/>
+
+    <!-- Banner Base: SIVIA PATUJU -->
+    <rect x="25" y="94" width="50" height="12" rx="2" fill="#ffffff" stroke="#1e293b" stroke-width="1.5"/>
+    <text x="50" y="103" font-family="system-ui, sans-serif" font-size="6" font-weight="900" text-anchor="middle" fill="#0f172a" letter-spacing="0.5">SIVIA PATUJU</text>
+  </g>
+</svg>
