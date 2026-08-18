@@ -16,7 +16,6 @@
 		'/laporan/duk': 'Laporan DUK Pegawai',
 		'/laporan/statistik': 'Statistik Kepegawaian',
 		'/laporan/pensiun': 'Estimasi Pensiun (BUP)',
-		'/migration-dashboard': 'Dashboard Migrasi Jabatan',
 		'/users': 'Manajemen Pengguna',
 		'/profile': 'Profil Pengguna',
 		'/ref-jabatan': 'Referensi Master Jabatan Terpadu',

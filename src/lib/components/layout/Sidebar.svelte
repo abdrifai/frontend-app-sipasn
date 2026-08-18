@@ -49,11 +49,6 @@
 						{ name: 'Statistik Kepegawaian', path: '/laporan/statistik' },
 						{ name: 'Estimasi Pensiun (BUP)', path: '/laporan/pensiun' }
 					]
-				},
-				{
-					name: 'Migrasi Jabatan',
-					path: '/migration-dashboard',
-					icon: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>`
 				}
 			]
 		},
