@@ -1,15 +1,41 @@
 <script>
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
+	import { api } from '$lib/utils/api.js';
 	import { sidebarStore } from '$lib/stores/sidebarStore.js';
 	import PegawaiSearchModal from '$lib/components/pegawai/PegawaiSearchModal.svelte';
 	import ProfilePegawaiHeader from '$lib/components/pegawai/ProfilePegawaiHeader.svelte';
 	import ProfilePegawaiTabs from '$lib/components/pegawai/ProfilePegawaiTabs.svelte';
+	import LoadingState from '$lib/components/feedback/LoadingState.svelte';
+	import ErrorState from '$lib/components/feedback/ErrorState.svelte';
 
-	let { data } = $props();
-	const p = $derived(data.pegawai);
-
+	let pegawai = $state(null);
+	let loading = $state(true);
+	let error = $state(null);
 	let showSearchModal = $state(false);
+
+	let currentId = $derived($page.params.id);
+
+	async function loadPegawaiData(pegawaiId) {
+		if (!pegawaiId) return;
+		loading = true;
+		error = null;
+		try {
+			const res = await api(`/pegawai/${pegawaiId}`);
+			pegawai = res.data;
+		} catch (err) {
+			error = err.message || 'Gagal memuat data detail pegawai';
+		} finally {
+			loading = false;
+		}
+	}
+
+	$effect(() => {
+		if (currentId) {
+			loadPegawaiData(currentId);
+		}
+	});
 
 	onMount(() => {
 		sidebarStore.collapse();
@@ -22,7 +48,7 @@
 	function handleSelectPegawai(newP) {
 		showSearchModal = false;
 		if (newP?.id) {
-			goto(`/pegawai/${newP.id}`, { invalidateAll: true });
+			goto(`/pegawai/${newP.id}`);
 		}
 	}
 
@@ -69,17 +95,27 @@
 		</button>
 	</div>
 
-	<!-- Header Profile Card Component -->
-	<ProfilePegawaiHeader 
-		pegawai={p} 
-		onPhotoUpdated={() => invalidateAll()}
-	/>
+	{#if loading}
+		<div class="py-12">
+			<LoadingState message="Memuat profil data pegawai..." />
+		</div>
+	{:else if error}
+		<div class="py-8">
+			<ErrorState message={error} onRetry={() => loadPegawaiData(currentId)} />
+		</div>
+	{:else if pegawai}
+		<!-- Header Profile Card Component -->
+		<ProfilePegawaiHeader 
+			{pegawai} 
+			onPhotoUpdated={() => loadPegawaiData(currentId)}
+		/>
 
-	<!-- Centralized Tabs & Riwayat Component -->
-	<ProfilePegawaiTabs 
-		pegawai={p} 
-		onReload={() => invalidateAll()}
-	/>
+		<!-- Centralized Tabs & Riwayat Component -->
+		<ProfilePegawaiTabs 
+			{pegawai} 
+			onReload={() => loadPegawaiData(currentId)}
+		/>
+	{/if}
 </div>
 
 <!-- Modal Dialog Pencarian Pegawai -->
