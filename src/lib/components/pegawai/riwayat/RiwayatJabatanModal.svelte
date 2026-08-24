@@ -60,6 +60,25 @@
 			}))
 	);
 
+	let selectedJenisJabatanObj = $derived(
+		refJenisJabatan.find(j => String(j.id) === String(jnsJab_id))
+	);
+
+	let isFungsional = $derived.by(() => {
+		if (!selectedJenisJabatanObj) return false;
+		const name = (selectedJenisJabatanObj.jnsjab || '').toUpperCase();
+		return name.includes('FUNGSIONAL') || name.includes('JF');
+	});
+
+	let fungsionalOptions = $derived(
+		refDaftarJabatan
+			.filter(j => j.tipe === 'FUNGSIONAL')
+			.map(j => ({
+				value: j.id,
+				label: j.nama,
+			}))
+	);
+
 	let jabatanOptions = $derived(
 		refDaftarJabatan.map(j => ({ 
 			value: j.id, 
@@ -208,20 +227,26 @@
 			}
 		}
 
-		if (targetNmJab) {
-			nama_jabatan = targetNmJab;
-		}
-		if (targetJabId) {
-			nmJab_id = targetJabId;
-		}
-		if (targetJnsJabId) {
-			jnsJab_id = targetJnsJabId;
-		} else if (!jnsJab_id) {
-			const struktural = refJenisJabatan.find(j => (j.jnsjab || '').toUpperCase().includes('STRUKTURAL'));
-			if (struktural) jnsJab_id = struktural.id;
-		}
-		if (targetEselonId) {
-			eselon_id = targetEselonId;
+		if (!isFungsional) {
+			if (targetNmJab) {
+				nama_jabatan = targetNmJab;
+			}
+			if (targetJabId) {
+				nmJab_id = targetJabId;
+			}
+			if (targetJnsJabId) {
+				jnsJab_id = targetJnsJabId;
+			} else if (!jnsJab_id) {
+				const struktural = refJenisJabatan.find(j => (j.jnsjab || '').toUpperCase().includes('STRUKTURAL'));
+				if (struktural) jnsJab_id = struktural.id;
+			}
+			if (targetEselonId) {
+				eselon_id = targetEselonId;
+			}
+		} else {
+			if (targetEselonId) {
+				eselon_id = targetEselonId;
+			}
 		}
 	}
 
@@ -445,25 +470,44 @@
 					</div>
 				</div>
 
-				<!-- Section 4: Nama Jabatan (Multi-row Textarea - Locked/Readonly) -->
+				<!-- Section 4: Nama Jabatan -->
 				<div class="space-y-1.5">
-					<div class="flex items-center justify-between">
-						<label for="nama_jabatan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-							Nama Jabatan <span class="text-rose-500">*</span>
-						</label>
-						<span class="inline-flex items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500 font-medium">
-							<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-							Terkunci otomatis
-						</span>
-					</div>
-					<textarea 
-						id="nama_jabatan"
-						rows="2"
-						readonly
-						placeholder="Nama jabatan akan terisi otomatis setelah memilih unit kerja di atas..."
-						bind:value={nama_jabatan}
-						class="w-full px-3 py-2 bg-zinc-100/90 dark:bg-zinc-800/70 border border-zinc-300/80 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 font-semibold cursor-not-allowed outline-none select-none placeholder:text-zinc-400/80 resize-none"
-					></textarea>
+					{#if isFungsional}
+						<Combobox 
+							options={fungsionalOptions}
+							value={nmJab_id}
+							onchange={(selectedId, opt) => {
+								nmJab_id = selectedId || '';
+								if (opt) {
+									nama_jabatan = opt.label || '';
+								} else {
+									nama_jabatan = '';
+								}
+							}}
+							label="Nama Jabatan (Jabatan Fungsional)"
+							placeholder="Pilih atau cari Jabatan Fungsional..."
+							disabled={loading || loadingRef}
+							required={true}
+						/>
+					{:else}
+						<div class="flex items-center justify-between">
+							<label for="nama_jabatan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+								Nama Jabatan <span class="text-rose-500">*</span>
+							</label>
+							<span class="inline-flex items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500 font-medium">
+								<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+								Terkunci otomatis
+							</span>
+						</div>
+						<textarea 
+							id="nama_jabatan"
+							rows="2"
+							readonly
+							placeholder="Nama jabatan akan terisi otomatis setelah memilih unit kerja di atas..."
+							bind:value={nama_jabatan}
+							class="w-full px-3 py-2 bg-zinc-100/90 dark:bg-zinc-800/70 border border-zinc-300/80 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 font-semibold cursor-not-allowed outline-none select-none placeholder:text-zinc-400/80 resize-none"
+						></textarea>
+					{/if}
 				</div>
 
 				<!-- Section: No SK & Tanggal SK -->
