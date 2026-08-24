@@ -46,14 +46,16 @@
 		selectedNode ? (selectedNode.label || selectedNode.nmUnor || '').trim() : placeholder
 	);
 
-	// Filter tree based on search query
+	// Filter tree based on active status and search query
 	function filterTree(nodes, query) {
-		if (!query) return nodes;
-		const q = query.toLowerCase().trim();
+		const q = (query || '').toLowerCase().trim();
 
 		const result = [];
 		for (const node of nodes) {
-			const labelMatch = (node.label || node.nmUnor || '').toLowerCase().includes(q);
+			// Sembunyikan unit non-aktif dari daftar default maupun pencarian, KECUALI jika unit tersebut sedang terpilih pada data yang diedit
+			if (node.isAktif === 0 && node.id !== value) continue;
+
+			const labelMatch = !q || (node.label || node.nmUnor || '').toLowerCase().includes(q);
 			const matchingChildren = node.children && node.children.length > 0 
 				? filterTree(node.children, query) 
 				: [];
@@ -63,7 +65,7 @@
 					...node,
 					children: matchingChildren,
 					// Force expand if matched via search
-					forceExpand: true
+					forceExpand: Boolean(q)
 				});
 			}
 		}

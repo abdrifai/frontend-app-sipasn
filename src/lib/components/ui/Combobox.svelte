@@ -21,6 +21,8 @@
 
 	let filteredOptions = $derived(
 		options.filter(opt => {
+			const optId = opt.value !== undefined ? opt.value : (opt.id || opt.kode || '');
+			if (opt.isAktif === 0 && optId !== value) return false;
 			const text = (opt.label || opt.instansi || opt.name || opt.nmUnor || '').toLowerCase();
 			const code = opt.kode ? String(opt.kode).toLowerCase() : '';
 			const q = searchQuery.toLowerCase().trim();

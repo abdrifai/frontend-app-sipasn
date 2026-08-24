@@ -47,14 +47,17 @@
 
 	// Combobox Options
 	let unorOptions = $derived(
-		refUnorInduk.map(u => ({
-			value: u.id,
-			label: (u.nmUnor || '').trim(),
-			nm_jab: u.nm_jab,
-			jab_id: u.resolved_jab_id || u.jab_id,
-			jns_jab_id: u.jns_jab_id,
-			eselon_id: u.eselon_id,
-		}))
+		refUnorInduk
+			.filter(u => u.isAktif !== 0 || u.id === unorInduk_id)
+			.map(u => ({
+				value: u.id,
+				label: (u.nmUnor || '').trim() + (u.isAktif === 0 ? ' (Non-Aktif)' : ''),
+				nm_jab: u.nm_jab,
+				jab_id: u.resolved_jab_id || u.jab_id,
+				jns_jab_id: u.jns_jab_id,
+				eselon_id: u.eselon_id,
+				isAktif: u.isAktif,
+			}))
 	);
 
 	let jabatanOptions = $derived(
@@ -396,28 +399,7 @@
 					/>
 				</div>
 
-				<!-- Section 2: Nama Jabatan (Multi-row Textarea - Locked/Readonly) -->
-				<div class="space-y-1.5">
-					<div class="flex items-center justify-between">
-						<label for="nama_jabatan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-							Nama Jabatan <span class="text-rose-500">*</span>
-						</label>
-						<span class="inline-flex items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500 font-medium">
-							<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-							Terkunci otomatis
-						</span>
-					</div>
-					<textarea 
-						id="nama_jabatan"
-						rows="2"
-						readonly
-						placeholder="Nama jabatan akan terisi otomatis setelah memilih unit kerja di atas..."
-						bind:value={nama_jabatan}
-						class="w-full px-3 py-2 bg-zinc-100/90 dark:bg-zinc-800/70 border border-zinc-300/80 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 font-semibold cursor-not-allowed outline-none select-none placeholder:text-zinc-400/80 resize-none"
-					></textarea>
-				</div>
-
-				<!-- Section 3: Jenis Mutasi -->
+				<!-- Section 2: Jenis Mutasi -->
 				<div class="space-y-1">
 					<Combobox 
 						options={mutasiOptions}
@@ -428,7 +410,7 @@
 					/>
 				</div>
 
-				<!-- Section 4: Jenis Jabatan & Eselon -->
+				<!-- Section 3: Jenis Jabatan & Eselon -->
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 					<div class="space-y-1.5">
 						<label for="jnsJab_id" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
@@ -461,6 +443,27 @@
 							disabled={loading || loadingRef}
 						/>
 					</div>
+				</div>
+
+				<!-- Section 4: Nama Jabatan (Multi-row Textarea - Locked/Readonly) -->
+				<div class="space-y-1.5">
+					<div class="flex items-center justify-between">
+						<label for="nama_jabatan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+							Nama Jabatan <span class="text-rose-500">*</span>
+						</label>
+						<span class="inline-flex items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500 font-medium">
+							<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+							Terkunci otomatis
+						</span>
+					</div>
+					<textarea 
+						id="nama_jabatan"
+						rows="2"
+						readonly
+						placeholder="Nama jabatan akan terisi otomatis setelah memilih unit kerja di atas..."
+						bind:value={nama_jabatan}
+						class="w-full px-3 py-2 bg-zinc-100/90 dark:bg-zinc-800/70 border border-zinc-300/80 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 font-semibold cursor-not-allowed outline-none select-none placeholder:text-zinc-400/80 resize-none"
+					></textarea>
 				</div>
 
 				<!-- Section: No SK & Tanggal SK -->
