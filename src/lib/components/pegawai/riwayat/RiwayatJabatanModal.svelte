@@ -65,21 +65,33 @@
 		refJenjangJabatan.map(j => ({ value: j.id, label: j.jenjangjab }))
 	);
 
+	let selectedJenjangObj = $derived(
+		refJenjangJabatan.find(j => String(j.id) === String(jnsJab_id))
+	);
+
 	let selectedJenisJabatanObj = $derived(
 		refJenisJabatan.find(j => String(j.id) === String(jnsJab_id))
 	);
 
-	let isFungsional = $derived.by(() => {
-		if (refJenjangJabatan.length > 0 && jnsJab_id) {
-			const foundJenjang = refJenjangJabatan.find(j => String(j.id) === String(jnsJab_id));
-			if (foundJenjang) return true;
+	let isStrukturalManajerial = $derived.by(() => {
+		let text = '';
+		if (selectedJenjangObj) {
+			text += (selectedJenjangObj.jenjangjab || '').toUpperCase() + ' ';
 		}
 		if (selectedJenisJabatanObj) {
-			const name = (selectedJenisJabatanObj.jnsjab || '').toUpperCase();
-			return name.includes('FUNGSIONAL') || name.includes('JF');
+			text += (selectedJenisJabatanObj.jnsjab || '').toUpperCase();
 		}
-		return false;
+		if (!text.trim()) return true; // Default ke true (auto-fill dari ref_jabatan) jika belum pilih jenjang
+		return (
+			text.includes('ADMINISTRATOR') ||
+			text.includes('PENGAWAS') ||
+			text.includes('PIMPINAN TINGGI') ||
+			text.includes('JPT') ||
+			text.includes('STRUKTURAL')
+		);
 	});
+
+	let isFungsional = $derived(!isStrukturalManajerial);
 
 	let fungsionalOptions = $derived(
 		refDaftarJabatan
