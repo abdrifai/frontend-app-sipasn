@@ -39,6 +39,7 @@
 
 	// Master Referensi
 	let refJenisJabatan = $state([]);
+	let refJenjangJabatan = $state([]);
 	let refUnorInduk = $state([]);
 	let refUnorTree = $state([]);
 	let refEselon = $state([]);
@@ -60,14 +61,24 @@
 			}))
 	);
 
+	let jenjangOptions = $derived(
+		refJenjangJabatan.map(j => ({ value: j.id, label: j.jenjangjab }))
+	);
+
 	let selectedJenisJabatanObj = $derived(
 		refJenisJabatan.find(j => String(j.id) === String(jnsJab_id))
 	);
 
 	let isFungsional = $derived.by(() => {
-		if (!selectedJenisJabatanObj) return false;
-		const name = (selectedJenisJabatanObj.jnsjab || '').toUpperCase();
-		return name.includes('FUNGSIONAL') || name.includes('JF');
+		if (refJenjangJabatan.length > 0 && jnsJab_id) {
+			const foundJenjang = refJenjangJabatan.find(j => String(j.id) === String(jnsJab_id));
+			if (foundJenjang) return true;
+		}
+		if (selectedJenisJabatanObj) {
+			const name = (selectedJenisJabatanObj.jnsjab || '').toUpperCase();
+			return name.includes('FUNGSIONAL') || name.includes('JF');
+		}
+		return false;
 	});
 
 	let fungsionalOptions = $derived(
@@ -195,6 +206,7 @@
 			const res = await api('/pegawai/referensi/jabatan');
 			if (res?.data) {
 				refJenisJabatan = res.data.jenis_jabatan || [];
+				refJenjangJabatan = res.data.jenjang_jabatan || [];
 				refUnorInduk = res.data.unor_induk || [];
 				refUnorTree = res.data.unor_tree || [];
 				refEselon = res.data.eselon || [];
@@ -437,26 +449,14 @@
 
 				<!-- Section 3: Jenjang Jabatan & Eselon -->
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<div class="space-y-1.5">
-						<label for="jnsJab_id" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-							Jenjang Jabatan
-						</label>
-						<div class="relative">
-							<select
-								id="jnsJab_id"
-								bind:value={jnsJab_id}
-								disabled={loading || loadingRef}
-								class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium appearance-none cursor-pointer"
-							>
-								<option value="">-- Pilih Jenjang Jabatan --</option>
-								{#each refJenisJabatan as rjj}
-									<option value={rjj.id}>{rjj.jnsjab}</option>
-								{/each}
-							</select>
-							<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-zinc-400">
-								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-							</div>
-						</div>
+					<div class="space-y-1">
+						<Combobox 
+							options={jenjangOptions.length > 0 ? jenjangOptions : refJenisJabatan.map(j => ({ value: j.id, label: j.jnsjab }))}
+							bind:value={jnsJab_id}
+							label="Jenjang Jabatan"
+							placeholder="Pilih atau cari Jenjang Jabatan..."
+							disabled={loading || loadingRef}
+						/>
 					</div>
 
 					<div class="space-y-1">
