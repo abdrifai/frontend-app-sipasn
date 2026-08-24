@@ -435,11 +435,11 @@
 					/>
 				</div>
 
-				<!-- Section 3: Jenis Jabatan & Eselon -->
+				<!-- Section 3: Jenjang Jabatan & Eselon -->
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 					<div class="space-y-1.5">
 						<label for="jnsJab_id" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-							Jenis Jabatan
+							Jenjang Jabatan
 						</label>
 						<div class="relative">
 							<select
@@ -448,7 +448,7 @@
 								disabled={loading || loadingRef}
 								class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium appearance-none cursor-pointer"
 							>
-								<option value="">-- Pilih Jenis Jabatan --</option>
+								<option value="">-- Pilih Jenjang Jabatan --</option>
 								{#each refJenisJabatan as rjj}
 									<option value={rjj.id}>{rjj.jnsjab}</option>
 								{/each}
