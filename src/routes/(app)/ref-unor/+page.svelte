@@ -19,7 +19,13 @@
 	let jabatanOptions = $state([]);
 	let eselonOptions = $state([]);
 	let jenisJabatanOptions = $state([]);
-	
+
+	// Unor Induk Filter & Search State
+	let unorIndukOptions = $state([]);
+	let selectedUnorIndukId = $state('');
+	let searchKeyword = $state('');
+	let loadingInduk = $state(false);
+
 	let loading = $state(true);
 	let error = $state(null);
 	let selectedInstansiKode = $state(7209);
@@ -79,6 +85,92 @@
 			loading = false;
 		}
 	}
+
+	async function loadUnorIndukOptions() {
+		loadingInduk = true;
+		try {
+			const res = await api(`/ref-unor/induk?limit=1000&instansi_kode=${selectedInstansiKode}`);
+			const list = res?.data || [];
+			unorIndukOptions = list.map(item => ({
+				id: item.id,
+				value: item.id,
+				label: item.nmUnor,
+				kode: item.kode,
+				item
+			}));
+		} catch (err) {
+			console.error('Failed to load Unor Induk options:', err);
+		} finally {
+			loadingInduk = false;
+		}
+	}
+
+	function handleInstansiChange() {
+		selectedUnorIndukId = '';
+		searchKeyword = '';
+		loadTree();
+		loadUnorIndukOptions();
+	}
+
+	async function handleUnorIndukFilter() {
+		if (!selectedUnorIndukId) {
+			loadTree();
+			return;
+		}
+
+		loading = true;
+		error = null;
+		try {
+			const targetOption = unorIndukOptions.find(o => o.value === selectedUnorIndukId);
+			const targetName = targetOption?.label || 'Unit Organisasi Induk';
+
+			const res = await api(`/ref-unor/tree?level=induk&parentId=${selectedUnorIndukId}`);
+			
+			treeData = [{
+				id: selectedUnorIndukId,
+				nmUnor: targetName,
+				level: 'induk',
+				hasChildren: (res.data || []).length > 0,
+				children: res.data || [],
+				expanded: true,
+				is_pimpinan: true
+			}];
+		} catch (err) {
+			error = err.message || 'Gagal memuat cabang Unor Induk';
+		} finally {
+			loading = false;
+		}
+	}
+
+	function clearUnorIndukFilter() {
+		selectedUnorIndukId = '';
+		searchKeyword = '';
+		loadTree();
+	}
+
+	let displayedTreeData = $derived.by(() => {
+		if (!searchKeyword.trim()) return treeData;
+		const kw = searchKeyword.toLowerCase().trim();
+
+		const filterNodes = (items) => {
+			const result = [];
+			for (const item of items) {
+				const name = (item.nmUnor || item.instansi || '').toLowerCase();
+				const matches = name.includes(kw);
+				const childMatches = item.children && item.children.length > 0 ? filterNodes(item.children) : [];
+				if (matches || childMatches.length > 0) {
+					result.push({
+						...item,
+						expanded: true,
+						children: childMatches.length > 0 ? childMatches : item.children
+					});
+				}
+			}
+			return result;
+		};
+
+		return filterNodes(treeData);
+	});
 
 	async function loadChildren(parentId, level) {
 		try {
@@ -162,6 +254,7 @@
 	onMount(() => {
 		loadTree();
 		loadInstansi();
+		loadUnorIndukOptions();
 		loadJnsUnor();
 		loadJabatan();
 		loadJabatanMetadata();
@@ -494,56 +587,89 @@
 </script>
 
 <div class="space-y-6">
-	<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-			<div>
-				<h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Unit Organisasi Hierarki</h1>
-				<p class="text-zinc-500 dark:text-zinc-400">Manajemen struktur organisasi berbasis pohon</p>
-			</div>
-			<div class="flex flex-wrap gap-2 items-end">
-				<Combobox 
-					label="Pilih Instansi"
-					placeholder="Cari instansi pemerintah..."
-					options={instansiOptions}
-					bind:value={selectedInstansiKode}
-					onchange={loadTree}
-					class="min-w-[320px]"
-				/>
-				<div class="flex gap-2">
-					<Button variant="secondary" onclick={loadTree}>
-						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
-						Segarkan
-					</Button>
+	<div class="flex flex-wrap gap-2.5 items-end justify-between">
+		<div class="flex flex-wrap gap-2.5 items-end flex-1">
+			<Combobox 
+				label="Pilih Instansi"
+				placeholder="Cari instansi pemerintah..."
+				options={instansiOptions}
+				bind:value={selectedInstansiKode}
+				onchange={handleInstansiChange}
+				class="min-w-[240px] sm:min-w-[280px]"
+			/>
+
+			<Combobox 
+				label="Pilih / Cari Unor Induk"
+				placeholder="Semua Unor Induk (Filter)..."
+				options={unorIndukOptions}
+				bind:value={selectedUnorIndukId}
+				onchange={handleUnorIndukFilter}
+				class="min-w-[280px] sm:min-w-[340px]"
+			/>
+
+			<div class="relative flex-1 sm:flex-initial min-w-[200px]">
+				<label for="search-unor" class="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Cari Nama Unit</label>
+				<div class="relative">
+					<input
+						id="search-unor"
+						type="text"
+						placeholder="Cari kata kunci unit..."
+						bind:value={searchKeyword}
+						class="w-full pl-8 pr-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+					/>
+					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
 				</div>
+			</div>
+
+			<div class="flex gap-2">
+				{#if selectedUnorIndukId || searchKeyword}
+					<Button variant="ghost" onclick={clearUnorIndukFilter} title="Reset Filter Unor Induk & Pencarian">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+						<span>Reset</span>
+					</Button>
+				{/if}
+				<Button variant="secondary" onclick={loadTree} title="Segarkan Data Struktur">
+					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+					<span>Segarkan</span>
+				</Button>
 			</div>
 		</div>
+	</div>
 
-		<Card>
-			<div class="mb-4 flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-zinc-100 dark:border-zinc-800 pb-4">
-				<div class="w-6"></div>
-				<div class="flex-1">Struktur Organisasi</div>
-				<div class="hidden md:block">Aksi</div>
+	<Card>
+		<div class="mb-4 flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-zinc-100 dark:border-zinc-800 pb-4">
+			<div class="w-6"></div>
+			<div class="flex-1">
+				Struktur Organisasi
+				{#if selectedUnorIndukId}
+					<span class="ml-2 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 font-semibold normal-case">
+						Terfilter Unor Induk
+					</span>
+				{/if}
 			</div>
+			<div class="hidden md:block">Aksi</div>
+		</div>
 
-			{#if loading}
-				<LoadingState message="Membangun pohon organisasi..." />
-			{:else if error}
-				<ErrorState message={error} onRetry={loadTree} />
-			{:else if treeData.length === 0}
-				<EmptyState message="Belum ada data struktur organisasi." />
-			{:else}
-				<div class="space-y-1">
-					{#each treeData as item}
-						<UnorTreeItem 
-							{item} 
-							onEdit={handleEdit} 
-							onDelete={handleDelete} 
-							onAddChild={handleAddChild} 
-							{loadChildren}
-						/>
-					{/each}
-				</div>
-			{/if}
-		</Card>
+		{#if loading}
+			<LoadingState message="Membangun pohon organisasi..." />
+		{:else if error}
+			<ErrorState message={error} onRetry={loadTree} />
+		{:else if displayedTreeData.length === 0}
+			<EmptyState message="Tidak ada unit organisasi yang sesuai dengan filter/pencarian." />
+		{:else}
+			<div class="space-y-1">
+				{#each displayedTreeData as item}
+					<UnorTreeItem 
+						{item} 
+						onEdit={handleEdit} 
+						onDelete={handleDelete} 
+						onAddChild={handleAddChild} 
+						{loadChildren}
+					/>
+				{/each}
+			</div>
+		{/if}
+	</Card>
 	</div>
 
 {#if showModal}
