@@ -17,9 +17,9 @@
 
 	let currentId = $derived($page.params.id);
 
-	async function loadPegawaiData(pegawaiId) {
+	async function loadPegawaiData(pegawaiId, silent = false) {
 		if (!pegawaiId) return;
-		loading = true;
+		if (!silent) loading = true;
 		error = null;
 		try {
 			const res = await api(`/pegawai/${pegawaiId}`);
@@ -27,7 +27,7 @@
 		} catch (err) {
 			error = err.message || 'Gagal memuat data detail pegawai';
 		} finally {
-			loading = false;
+			if (!silent) loading = false;
 		}
 	}
 
@@ -107,13 +107,13 @@
 		<!-- Header Profile Card Component -->
 		<ProfilePegawaiHeader 
 			{pegawai} 
-			onPhotoUpdated={() => loadPegawaiData(currentId)}
+			onPhotoUpdated={() => loadPegawaiData(currentId, true)}
 		/>
 
 		<!-- Centralized Tabs & Riwayat Component -->
 		<ProfilePegawaiTabs 
 			{pegawai} 
-			onReload={() => loadPegawaiData(currentId)}
+			onReload={() => loadPegawaiData(currentId, true)}
 		/>
 	{/if}
 </div>
