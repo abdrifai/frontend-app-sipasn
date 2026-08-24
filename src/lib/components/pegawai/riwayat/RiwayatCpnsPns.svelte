@@ -61,9 +61,9 @@
 
 <div class="space-y-4">
 	<!-- Tab Header with Action Button -->
-	<div class="flex items-center justify-between gap-3 pb-1 border-b border-zinc-100 dark:border-zinc-800/80">
-		<div class="flex items-center gap-2">
-			<div class="w-2 h-2 rounded-full bg-indigo-500"></div>
+	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-zinc-100 dark:border-zinc-800/80">
+		<div class="flex items-center gap-2 flex-wrap">
+			<div class="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></div>
 			<h4 class="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100">
 				Data Penetapan CPNS / PNS Pegawai
 			</h4>
@@ -78,10 +78,10 @@
 			<button
 				type="button"
 				onclick={openCreateModal}
-				class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+				class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer w-full sm:w-auto"
 				title="Tambah riwayat CPNS / PNS baru"
 			>
-				<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+				<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
 				<span>Tambah CPNS / PNS</span>
 			</button>
 		{/if}
@@ -91,13 +91,13 @@
 	{#if riwayat?.length}
 		<div class="space-y-3.5">
 			{#each riwayat as cp}
-				<div class="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 space-y-3 shadow-2xs hover:border-indigo-200 dark:hover:border-indigo-900/60 transition-all">
+				<div class="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 space-y-3 shadow-2xs hover:border-indigo-200 dark:hover:border-indigo-900/60 transition-all">
 					
 					<!-- Header Card: Status Badge, Golongan, TMT + Actions -->
-					<div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/60 pb-2.5">
-						<div class="flex items-center gap-2 flex-wrap">
-							<Badge variant={cp.status_pns.includes('CPNS') ? 'indigo' : 'success'}>
-								{cp.status_pns}
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-zinc-100 dark:border-zinc-800/60 pb-3">
+						<div class="flex items-center gap-2 flex-wrap min-w-0">
+							<Badge variant={cp.status_pns?.includes('CPNS') ? 'indigo' : 'success'}>
+								{cp.status_pns || 'CPNS/PNS'}
 							</Badge>
 							{#if cp.golongan && cp.golongan !== '-'}
 								<span class="text-xs font-bold text-zinc-900 dark:text-zinc-100">
@@ -111,20 +111,20 @@
 							{/if}
 						</div>
 
-						<div class="flex items-center gap-2">
+						<div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 w-full sm:w-auto">
 							<span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg border border-indigo-200/50 dark:border-indigo-800/50 font-mono">
 								TMT: {cp.tmt_sk || '-'}
 							</span>
 
 							{#if pegawaiId}
-								<div class="flex items-center gap-1 shrink-0 ml-1">
+								<div class="flex items-center gap-1 shrink-0">
 									<button
 										type="button"
 										onclick={() => openEditModal(cp)}
 										class="p-1.5 rounded-lg text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors cursor-pointer"
 										title="Edit data CPNS/PNS"
 									>
-										<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+										<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
 									</button>
 									<button
 										type="button"
@@ -132,7 +132,7 @@
 										class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
 										title="Hapus data CPNS/PNS"
 									>
-										<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+										<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
 									</button>
 								</div>
 							{/if}
@@ -144,35 +144,35 @@
 						<!-- Tampilan Khusus SK CPNS -->
 						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
 							<!-- SK CPNS Details -->
-							<div class="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800/60 space-y-0.5">
+							<div class="p-2.5 sm:p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800/60 space-y-1">
 								<p class="text-[10px] uppercase font-bold text-zinc-400">Nomor & Tanggal SK CPNS</p>
-								<p class="font-mono font-medium text-zinc-800 dark:text-zinc-200">{cp.sk || '-'}</p>
+								<p class="font-mono font-medium text-zinc-800 dark:text-zinc-200 break-words break-all">{cp.sk || '-'}</p>
 								<p class="text-[11px] text-zinc-500 font-mono">Tgl: {cp.tgl_sk || '-'}</p>
 							</div>
 
 							<!-- Pertek BKN (Khusus CPNS) -->
-							<div class="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800/60 space-y-0.5">
+							<div class="p-2.5 sm:p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800/60 space-y-1">
 								<p class="text-[10px] uppercase font-bold text-zinc-400">Persetujuan Teknis (Pertek BKN)</p>
-								<p class="font-mono font-medium text-zinc-800 dark:text-zinc-200">{cp.pertek_bkn && cp.pertek_bkn !== '-' ? cp.pertek_bkn : 'Belum diisi'}</p>
+								<p class="font-mono font-medium text-zinc-800 dark:text-zinc-200 break-words break-all">{cp.pertek_bkn && cp.pertek_bkn !== '-' ? cp.pertek_bkn : 'Belum diisi'}</p>
 								{#if cp.tgl_pertek && cp.tgl_pertek !== '-'}
 									<p class="text-[11px] text-zinc-500 font-mono">Tgl: {cp.tgl_pertek}</p>
 								{/if}
 							</div>
 						</div>
 					{:else}
-						<!-- Tampilan Khusus SK PNS (Hanya SK PNS & STTPL, Tanpa Pertek BKN & Tanpa KARPEG) -->
+						<!-- Tampilan Khusus SK PNS (Hanya SK PNS & STTPL) -->
 						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
 							<!-- SK PNS Details -->
-							<div class="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800/60 space-y-0.5">
+							<div class="p-2.5 sm:p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800/60 space-y-1">
 								<p class="text-[10px] uppercase font-bold text-zinc-400">Nomor & Tanggal SK PNS</p>
-								<p class="font-mono font-medium text-zinc-800 dark:text-zinc-200">{cp.sk || '-'}</p>
+								<p class="font-mono font-medium text-zinc-800 dark:text-zinc-200 break-words break-all">{cp.sk || '-'}</p>
 								<p class="text-[11px] text-zinc-500 font-mono">Tgl: {cp.tgl_sk || '-'}</p>
 							</div>
 
 							<!-- STTPL / Diklat Prajabatan / Latsar -->
-							<div class="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800/60 space-y-0.5">
+							<div class="p-2.5 sm:p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800/60 space-y-1">
 								<p class="text-[10px] uppercase font-bold text-zinc-400">STTPL (Prajabatan / Latsar)</p>
-								<p class="font-mono font-medium text-zinc-800 dark:text-zinc-200">{cp.sttpl && cp.sttpl !== '-' ? cp.sttpl : 'Belum diisi'}</p>
+								<p class="font-mono font-medium text-zinc-800 dark:text-zinc-200 break-words break-all">{cp.sttpl && cp.sttpl !== '-' ? cp.sttpl : 'Belum diisi'}</p>
 								{#if cp.tgl_sttpl && cp.tgl_sttpl !== '-'}
 									<p class="text-[11px] text-zinc-500 font-mono">Tgl: {cp.tgl_sttpl}</p>
 								{/if}
@@ -181,10 +181,10 @@
 					{/if}
 
 					<!-- Bottom Row: Pejabat Penetap & Dokumen SK -->
-					<div class="pt-2 border-t border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between flex-wrap gap-2 text-xs">
-						<div class="text-zinc-500">
+					<div class="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+						<div class="text-zinc-500 min-w-0">
 							{#if cp.penanda_tangan && cp.penanda_tangan !== '-'}
-								<span>Pejabat Penetap: <strong class="text-zinc-700 dark:text-zinc-300 font-semibold">{cp.penanda_tangan}</strong></span>
+								<span class="break-words">Pejabat Penetap: <strong class="text-zinc-700 dark:text-zinc-300 font-semibold">{cp.penanda_tangan}</strong></span>
 							{/if}
 						</div>
 
@@ -193,9 +193,9 @@
 								href={`${API_BASE}${cp.dokumen_sk}`}
 								target="_blank"
 								rel="noreferrer"
-								class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold text-xs border border-indigo-200/60 dark:border-indigo-800/60 transition-colors"
+								class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold text-xs border border-indigo-200/60 dark:border-indigo-800/60 transition-colors w-full sm:w-auto"
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M10 13v6"/><path d="m13 16-3 3-3-3"/></svg>
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M10 13v6"/><path d="m13 16-3 3-3-3"/></svg>
 								<span>Lihat Dokumen SK (PDF)</span>
 							</a>
 						{/if}
@@ -204,7 +204,7 @@
 			{/each}
 		</div>
 	{:else}
-		<div class="text-center py-12 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/50">
+		<div class="text-center py-12 px-4 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/50">
 			<div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-500 mx-auto mb-2.5">
 				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg>
 			</div>

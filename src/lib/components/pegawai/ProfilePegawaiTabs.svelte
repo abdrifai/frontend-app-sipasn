@@ -165,7 +165,7 @@
 	</div>
 
 	<!-- Tab Content Area -->
-	<div class="p-4 sm:p-6">
+	<div class="p-3 sm:p-6">
 		{#if loading && !pegawai?.id}
 			<div class="space-y-3 py-4 animate-pulse">
 				<div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-1/4"></div>
