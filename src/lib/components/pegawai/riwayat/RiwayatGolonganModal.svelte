@@ -296,7 +296,7 @@
 	>
 		<!-- Modal Content Box -->
 		<div 
-			class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+			class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 mx-3 sm:mx-auto"
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
@@ -580,7 +580,7 @@
 			</form>
 
 			<!-- Modal Footer Actions -->
-			<div class="p-4 sm:px-6 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/80 flex items-center justify-end gap-2.5 shrink-0">
+			<div class="p-4 sm:px-6 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/80 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 shrink-0">
 				<Button
 					variant="ghost"
 					onclick={onClose}
