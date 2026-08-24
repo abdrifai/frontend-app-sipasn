@@ -53,9 +53,9 @@
 
 <div class="min-h-screen bg-slate-50/70 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex">
 	{#if ready}
-		<Sidebar collapsed={$sidebarStore} />
+		<Sidebar collapsed={$sidebarStore.collapsed} mobileOpen={$sidebarStore.mobileOpen} />
 		
-		<div class="flex-1 flex flex-col min-w-0 transition-all duration-300 {$sidebarStore ? 'lg:ml-20' : 'lg:ml-64'}">
+		<div class="flex-1 flex flex-col min-w-0 transition-all duration-300 ml-0 {$sidebarStore.collapsed ? 'lg:ml-20' : 'lg:ml-64'}">
 			<!-- Topbar -->
 			<header class="sticky top-0 z-40 h-16 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 px-4 sm:px-8 flex items-center justify-between">
 				<div class="flex items-center gap-3">

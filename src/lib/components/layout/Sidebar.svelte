@@ -1,14 +1,35 @@
 <script>
 	import { page } from '$app/stores';
 	import { authStore } from '$lib/stores/authStore';
+	import { sidebarStore } from '$lib/stores/sidebarStore';
 	import { api } from '$lib/utils/api.js';
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import ThemeToggle from '../ui/ThemeToggle.svelte';
 	import AppLogo from '../ui/AppLogo.svelte';
 
 	const API_BASE = import.meta.env.VITE_API_URL.replace('/api', '');
 
-	let { collapsed = false } = $props();
+	let { collapsed = false, mobileOpen = false } = $props();
+
+	let isMobile = $state(false);
+
+	onMount(() => {
+		const checkMobile = () => {
+			isMobile = window.innerWidth < 1024;
+		};
+		checkMobile();
+		window.addEventListener('resize', checkMobile);
+		return () => window.removeEventListener('resize', checkMobile);
+	});
+
+	let isCollapsedDesktop = $derived(collapsed && !isMobile);
+
+	function handleNavClick() {
+		if (isMobile) {
+			sidebarStore.closeMobile();
+		}
+	}
 
 	async function handleLogout() {
 		try {
@@ -105,30 +126,76 @@
 		}
 		if (path.startsWith('/laporan/')) expandedGroups.laporan = true;
 	});
+
+	// Auto close mobile menu when path changes
+	$effect(() => {
+		$page.url.pathname;
+		if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+			sidebarStore.closeMobile();
+		}
+	});
+
+	function handleKeyDown(e) {
+		if (e.key === 'Escape' && mobileOpen) {
+			sidebarStore.closeMobile();
+		}
+	}
 </script>
 
+<svelte:window onkeydown={handleKeyDown} />
+
+{#if mobileOpen}
+	<!-- Backdrop Overlay for Mobile -->
+	<button
+		type="button"
+		aria-label="Tutup menu navigasi"
+		onclick={() => sidebarStore.closeMobile()}
+		class="fixed inset-0 bg-zinc-950/60 backdrop-blur-xs z-40 transition-opacity duration-300 lg:hidden cursor-pointer"
+	></button>
+{/if}
+
 <aside
-	class="fixed left-0 top-0 h-full bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-r border-zinc-200/80 dark:border-zinc-800/80 transition-all duration-300 z-50 flex flex-col {collapsed ? 'w-20' : 'w-64'}"
+	class="fixed left-0 top-0 bottom-0 h-full bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-r border-zinc-200/80 dark:border-zinc-800/80 transition-all duration-300 z-50 flex flex-col
+		w-72 {isCollapsedDesktop ? 'lg:w-20' : 'lg:w-64'}
+		{mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}"
 >
 	<!-- Logo / Brand Header -->
-	<a 
-		href="/dashboard" 
-		class="h-20 flex items-center {collapsed ? 'justify-center px-2' : 'px-5'} border-b border-zinc-100 dark:border-zinc-900 group hover:bg-zinc-50/60 dark:hover:bg-zinc-900/40 transition-colors"
-		title="SIPASN Kabupaten Tojo Una-Una"
+	<div
+		class="h-20 flex items-center justify-between {isCollapsedDesktop ? 'lg:justify-center lg:px-2 px-5' : 'px-5'} border-b border-zinc-100 dark:border-zinc-900 group hover:bg-zinc-50/60 dark:hover:bg-zinc-900/40 transition-colors"
 	>
-		<AppLogo 
-			size={collapsed ? 'sm' : 'md'} 
-			iconOnly={collapsed}
-			variant="glow"
-			subtitle="Kab. Tojo Una-Una"
-		/>
-	</a>
+		<a 
+			href="/dashboard"
+			onclick={handleNavClick}
+			class="flex items-center gap-2"
+			title="SIPASN Kabupaten Tojo Una-Una"
+		>
+			<AppLogo 
+				size={isCollapsedDesktop ? 'sm' : 'md'} 
+				iconOnly={isCollapsedDesktop}
+				variant="glow"
+				subtitle="Kab. Tojo Una-Una"
+			/>
+		</a>
+
+		<!-- Close Button for Mobile -->
+		<button
+			type="button"
+			onclick={() => sidebarStore.closeMobile()}
+			class="lg:hidden p-2 rounded-xl text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
+			aria-label="Tutup Sidebar"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<line x1="18" y1="6" x2="6" y2="18"/>
+				<line x1="6" y1="6" x2="18" y2="18"/>
+			</svg>
+		</button>
+	</div>
 
 	<!-- Navigation Section -->
 	<nav class="flex-1 px-3 py-4 space-y-6 overflow-y-auto scrollbar-none">
 		{#each menuItems as group}
 			<div class="space-y-1">
-				{#if !collapsed}
+				{#if !isCollapsedDesktop}
 					<p class="px-3 pb-1 text-[10px] font-extrabold uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500">
 						{group.category}
 					</p>
@@ -146,7 +213,7 @@
 								<span class="shrink-0 transition-transform duration-200 group-hover:scale-110">
 									{@html item.icon}
 								</span>
-								{#if !collapsed}
+								{#if !isCollapsedDesktop}
 									<span class="truncate">{item.name}</span>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -165,7 +232,7 @@
 								{/if}
 							</button>
 
-							{#if expandedGroups[item.id] && !collapsed}
+							{#if expandedGroups[item.id] && !isCollapsedDesktop}
 								<div class="pl-7 pr-1 py-1 space-y-1 border-l-2 border-zinc-100 dark:border-zinc-800/80 ml-4">
 									{#each item.children as child}
 										{#if child.children}
@@ -199,6 +266,7 @@
 														{#each child.children as subChild}
 															<a
 																href={subChild.path}
+																onclick={handleNavClick}
 																class="block py-1.5 px-2 text-xs rounded-lg transition-all duration-200
 																	{$page.url.pathname === subChild.path
 																		? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50/50 dark:bg-indigo-500/10'
@@ -213,6 +281,7 @@
 										{:else}
 											<a
 												href={child.path}
+												onclick={handleNavClick}
 												class="flex items-center py-2 px-2.5 text-xs font-semibold rounded-lg transition-all duration-200
 													{$page.url.pathname === child.path
 														? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-500/10'
@@ -228,6 +297,7 @@
 					{:else}
 						<a
 							href={item.path}
+							onclick={handleNavClick}
 							class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 group
 								{$page.url.pathname === item.path
 									? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold'
@@ -236,10 +306,10 @@
 							<span class="shrink-0 transition-transform duration-200 group-hover:scale-110">
 								{@html item.icon}
 							</span>
-							{#if !collapsed}
+							{#if !isCollapsedDesktop}
 								<span class="truncate">{item.name}</span>
 							{/if}
-							{#if $page.url.pathname === item.path && !collapsed}
+							{#if $page.url.pathname === item.path && !isCollapsedDesktop}
 								<div class="ml-auto w-2 h-2 rounded-full bg-white animate-pulse"></div>
 							{/if}
 						</a>
@@ -251,7 +321,7 @@
 
 	<!-- User / Profile Footer -->
 	<div class="p-3 border-t border-zinc-200/80 dark:border-zinc-800/80 space-y-2.5 bg-zinc-50/50 dark:bg-zinc-900/40">
-		{#if !collapsed}
+		{#if !isCollapsedDesktop}
 			<div class="flex items-center gap-3 p-2 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/70 dark:border-zinc-800 shadow-xs">
 				<div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 shrink-0 flex items-center justify-center text-white text-xs font-black overflow-hidden shadow-sm">
 					{#if $authStore.user?.profile_photo_path}
@@ -264,7 +334,7 @@
 					<p class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate leading-tight">
 						{$authStore.user?.nama_lengkap || $authStore.user?.nama || 'Administrator'}
 					</p>
-					<a href="/profile" class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-bold mt-0.5 inline-block">
+					<a href="/profile" onclick={handleNavClick} class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-bold mt-0.5 inline-block">
 						Lihat Profil
 					</a>
 				</div>
@@ -272,7 +342,7 @@
 		{/if}
 		<div class="flex items-center justify-between px-1">
 			<ThemeToggle />
-			{#if !collapsed}
+			{#if !isCollapsedDesktop}
 				<button 
 					onclick={handleLogout}
 					class="text-xs font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 px-3 py-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all cursor-pointer flex items-center gap-1.5"
