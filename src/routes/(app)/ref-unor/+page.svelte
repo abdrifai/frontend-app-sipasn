@@ -801,13 +801,13 @@
 					/>
 				</div>
 
-				{#if currentLevel === 'induk'}
+				{#if currentLevel !== 'instansi'}
 					<!-- Section Header: Master Jabatan Pimpinan -->
 					<div class="pt-3 pb-1 border-t border-zinc-200/80 dark:border-zinc-800">
 						<div class="flex items-center gap-2 mb-3">
 							<div class="w-2 h-2 rounded-full bg-indigo-500"></div>
 							<h3 class="text-xs font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-								Informasi Jabatan Pimpinan (Master Jabatan)
+								Informasi Jabatan (Master Jabatan)
 							</h3>
 						</div>
 
@@ -863,9 +863,9 @@
 									{/if}
 
 									<Input
-										label="Nama Jabatan Pimpinan"
+										label="Nama Jabatan"
 										bind:value={form.nm_jab}
-										placeholder="Contoh: KEPALA DINAS KESEHATAN"
+										placeholder="Contoh: KEPALA SUBBAGIAN PROGRAM, KEUANGAN DAN ASET"
 										error={fieldErrors.nm_jab}
 										required
 									/>
@@ -1013,64 +1013,6 @@
 							</div>
 						</div>
 					</div>
-				{:else if currentLevel !== 'instansi'}
-					{#if form.jab_id && form.jab_id !== 'null' && !isChangingJabatan}
-						<div class="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/80 rounded-2xl space-y-2">
-							<div class="flex items-center justify-between">
-								<span class="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-									<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-									Nama Jabatan (dari Master ref_jabatan)
-								</span>
-								<button
-									type="button"
-									onclick={() => isChangingJabatan = true}
-									class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-								>
-									Ubah / Cari Jabatan Lain
-								</button>
-							</div>
-							<div class="p-3 bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800 rounded-xl">
-								<span class="text-sm font-bold text-zinc-900 dark:text-zinc-100">{form.nm_jab || '-'}</span>
-							</div>
-						</div>
-					{:else}
-						<div class="space-y-4 p-4 bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-800/60 rounded-2xl">
-							{#if isChangingJabatan}
-								<div class="flex justify-end">
-									<button
-										type="button"
-										onclick={() => isChangingJabatan = false}
-										class="text-xs font-semibold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 underline cursor-pointer"
-									>
-										Batal Ubah Jabatan
-									</button>
-								</div>
-							{/if}
-							<Combobox
-								label="Cari & Hubungkan Master Jabatan (ref_jabatan)"
-								placeholder="Ketik kata kunci untuk mencari dari master ref_jabatan..."
-								options={jabatanOptions}
-								bind:value={form.jab_id}
-								onchange={handleJabSelect}
-							/>
-							{#if form.jab_id && form.jab_id !== 'null'}
-								<div class="flex items-center justify-between text-xs pt-1">
-									<span class="text-indigo-700 dark:text-indigo-300 font-medium">Terhubung ke <code>ref_jabatan.id</code>:</span>
-									<span class="font-mono font-bold text-indigo-900 dark:text-indigo-100">{form.jab_id}</span>
-								</div>
-							{:else}
-								<p class="text-[11px] text-amber-700 dark:text-amber-300 font-medium">
-									💡 <code>jab_id</code> saat ini <b>Kosong (NULL)</b>. Anda dapat memilih dari pencarian master di atas atau mengisikan nama di bawah.
-								</p>
-							{/if}
-							<Input
-								label="Nama Jabatan"
-								bind:value={form.nm_jab}
-								placeholder="Masukkan Nama Jabatan"
-								error={fieldErrors.nm_jab}
-							/>
-						</div>
-					{/if}
 				{/if}
 			</div>
 
