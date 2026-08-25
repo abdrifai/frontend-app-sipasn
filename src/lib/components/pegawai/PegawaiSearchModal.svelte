@@ -108,12 +108,13 @@
 
 	function handleSelect(p) {
 		if (!p?.id) return;
-		sidebarStore.collapse();
 		onClose();
 		if (onSelect && typeof onSelect === 'function') {
 			onSelect(p);
+		} else {
+			sidebarStore.collapse();
+			goto(`/pegawai/${p.id}`, { invalidateAll: true });
 		}
-		goto(`/pegawai/${p.id}`, { invalidateAll: true });
 	}
 
 	function handleKeyDown(e) {
