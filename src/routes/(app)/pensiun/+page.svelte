@@ -644,16 +644,11 @@
 			<!-- Body -->
 			<div class="flex-1 bg-zinc-100 dark:bg-zinc-950 p-2 sm:p-3 relative flex flex-col min-h-0 overflow-hidden">
 				{#if previewPdfUrl}
-					<object data={previewPdfUrl} type="application/pdf" class="w-full h-full rounded-2xl">
-						<iframe src={previewPdfUrl} title="Dokumen SK Pensiun" class="w-full h-full rounded-2xl border-0">
-							<div class="h-full flex flex-col items-center justify-center p-6 text-center">
-								<p class="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">Browser Anda tidak mendukung preview PDF langsung.</p>
-								<a href={previewPdfUrl} target="_blank" rel="noopener noreferrer" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">
-									Buka Dokumen PDF di Tab Baru
-								</a>
-							</div>
-						</iframe>
-					</object>
+					<iframe 
+						src={previewPdfUrl} 
+						title="Dokumen SK Pensiun" 
+						class="w-full h-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white"
+					></iframe>
 				{:else}
 					<div class="h-full flex flex-col items-center justify-center p-6 text-center text-zinc-400">
 						<div class="w-12 h-12 rounded-2xl bg-zinc-200/60 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 mb-3">
