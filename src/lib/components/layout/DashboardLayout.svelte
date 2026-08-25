@@ -26,7 +26,8 @@
 		'/ref-kedudukan-pns': 'Referensi Kedudukan PNS',
 		'/ref-jns-mutasi': 'Referensi Jenis Mutasi',
 		'/ref-jns-hukuman': 'Referensi Jenis Hukuman',
-		'/ref-jns-unor': 'Referensi Jenis Unit Organisasi'
+		'/ref-jns-unor': 'Referensi Jenis Unit Organisasi',
+		'/pensiun': 'Manajemen Pensiun Pegawai'
 	};
 
 	let pageTitle = $derived.by(() => {
