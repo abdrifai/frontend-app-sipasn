@@ -459,6 +459,8 @@
 			form = { ...form, ...item };
 		}
 
+		form.isAktif = (form.isAktif === 1 || form.isAktif === '1' || form.isAktif === true) ? 1 : 0;
+
 		if (!form.nm_jab || form.nm_jab === '-' || form.nm_jab.trim() === '') {
 			if (item?.nm_jab && item.nm_jab !== '-') {
 				form.nm_jab = item.nm_jab;
@@ -1023,18 +1025,31 @@
 								{/if}
 							</div>
 
-							<div class="space-y-2">
-								<label class="text-xs font-bold uppercase tracking-wider text-zinc-400">Status Aktif</label>
-								<div class="flex gap-4">
-									<label class="flex items-center gap-2 cursor-pointer group">
-										<input type="radio" bind:group={form.isAktif} value={1} class="w-4 h-4 text-indigo-600 focus:ring-indigo-500" />
-										<span class="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-indigo-500 transition-colors">Aktif</span>
-									</label>
-									<label class="flex items-center gap-2 cursor-pointer group">
-										<input type="radio" bind:group={form.isAktif} value={0} class="w-4 h-4 text-indigo-600 focus:ring-indigo-500" />
-										<span class="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-indigo-500 transition-colors">Tidak Aktif</span>
-									</label>
+							<div class="space-y-1.5">
+								<label for="isAktif" class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+									Status Unit Organisasi
+								</label>
+								<div class="grid grid-cols-2 gap-3">
+									<button
+										type="button"
+										onclick={() => form.isAktif = 1}
+										class="px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer {form.isAktif === 1 ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-sm ring-2 ring-emerald-500/20' : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900'}"
+									>
+										<span class="w-2 h-2 rounded-full {form.isAktif === 1 ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'}"></span>
+										<span>AKTIF</span>
+									</button>
+									<button
+										type="button"
+										onclick={() => form.isAktif = 0}
+										class="px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer {form.isAktif === 0 ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-500 text-rose-700 dark:text-rose-300 shadow-sm ring-2 ring-rose-500/20' : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900'}"
+									>
+										<span class="w-2 h-2 rounded-full {form.isAktif === 0 ? 'bg-rose-500' : 'bg-zinc-400'}"></span>
+										<span>NON AKTIF</span>
+									</button>
 								</div>
+								{#if fieldErrors.isAktif}
+									<p class="text-xs text-rose-500 font-semibold">{fieldErrors.isAktif}</p>
+								{/if}
 							</div>
 						</div>
 					</div>
