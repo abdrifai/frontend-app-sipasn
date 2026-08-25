@@ -442,6 +442,15 @@
 			form = { ...form, ...item };
 		}
 
+		if (!form.nm_jab || form.nm_jab === '-' || form.nm_jab.trim() === '') {
+			if (item?.nm_jab && item.nm_jab !== '-') {
+				form.nm_jab = item.nm_jab;
+			} else if (form.nmUnor) {
+				const cleanUnor = form.nmUnor.trim();
+				form.nm_jab = cleanUnor.toUpperCase().startsWith('KEPALA ') ? cleanUnor : `KEPALA ${cleanUnor}`;
+			}
+		}
+
 		if (form.instansi_id) {
 			await loadJnsUnor(form.instansi_id);
 		}
