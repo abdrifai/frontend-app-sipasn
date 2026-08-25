@@ -494,11 +494,15 @@
 				? new Date(form.tglPeraturan).getFullYear() 
 				: (form.tahun ? parseInt(form.tahun) : null);
 
+			const selectedJns = jnsUnorOptions.find(j => j.id === form.jnsUnor_id || j.value === form.jnsUnor_id);
+
 			const commonPayload = {
 				kode: form.kode || undefined,
 				nmUnor: form.nmUnor,
 				nm_jab: form.nm_jab || null,
 				kategori_jab: form.kategori_jab || 'STRUKTURAL',
+				jnsUnor_id: form.jnsUnor_id || null,
+				jnsUnor_kode: selectedJns?.kode ? String(selectedJns.kode) : (form.jnsUnor_kode ? String(form.jnsUnor_kode) : null),
 				eselon_id: form.eselon_id || null,
 				jns_jab_id: form.jns_jab_id || null,
 				jenjang_jab_id: form.jenjang_jab_id || null,
@@ -515,14 +519,11 @@
 
 			if (currentLevel === 'induk') {
 				endpoint += '/induk';
-				const selectedJns = jnsUnorOptions.find(j => j.id === form.jnsUnor_id || j.value === form.jnsUnor_id);
 
 				payload = {
 					...commonPayload,
 					instansi_id: form.instansi_id || null,
 					instansi_kode: form.instansi_kode || null,
-					jnsUnor_id: form.jnsUnor_id || null,
-					jnsUnor_kode: selectedJns?.kode ? String(selectedJns.kode) : (form.jnsUnor_kode ? String(form.jnsUnor_kode) : null),
 				};
 				if (payload.instansi_id && !payload.instansi_kode) {
 					const ins = instansiOptions.find(i => i.id === payload.instansi_id);
@@ -762,7 +763,7 @@
 						</div>
 
 						<div class="space-y-1">
-							<label for="jnsUnor" class="text-xs font-bold uppercase tracking-wider text-zinc-400">Jenis Unor (Kategori)</label>
+							<label for="jnsUnor" class="text-xs font-bold uppercase tracking-wider text-zinc-400">Jenis Unor (ref_jnsunor)</label>
 							<select
 								id="jnsUnor"
 								bind:value={form.jnsUnor_id}
@@ -781,6 +782,27 @@
 								<p class="text-xs text-rose-500">{fieldErrors.jnsUnor_id}</p>
 							{/if}
 						</div>
+					</div>
+				{:else}
+					<div class="space-y-1">
+						<label for="jnsUnor" class="text-xs font-bold uppercase tracking-wider text-zinc-400">Jenis Unor (ref_jnsunor)</label>
+						<select
+							id="jnsUnor"
+							bind:value={form.jnsUnor_id}
+							onchange={(e) => {
+								const selected = jnsUnorOptions.find(o => o.id === form.jnsUnor_id);
+								if (selected) form.jnsUnor_kode = selected.kode.toString();
+							}}
+							class="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+						>
+							<option value="">Pilih Jenis Unor</option>
+							{#each jnsUnorOptions as opt}
+								<option value={opt.id}>{opt.jnsunor}</option>
+							{/each}
+						</select>
+						{#if fieldErrors.jnsUnor_id}
+							<p class="text-xs text-rose-500">{fieldErrors.jnsUnor_id}</p>
+						{/if}
 					</div>
 				{/if}
 
