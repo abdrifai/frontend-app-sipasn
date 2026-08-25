@@ -233,13 +233,12 @@
 		return API_BASE ? `${API_BASE}/${cleanPath}` : `/${cleanPath}`;
 	}
 
+	let currentPreviewItem = $state(null);
+
 	function openPdfPreview(item) {
-		if (!item || !item.file_sk) {
-			toast.info('Dokumen SK belum diunggah');
-			return;
-		}
-		previewPdfUrl = getFileUrl(item.file_sk);
-		previewTitle = `SK Pensiun - ${item.pegawai?.nama || 'Pegawai'}`;
+		currentPreviewItem = item;
+		previewPdfUrl = item?.file_sk ? getFileUrl(item.file_sk) : '';
+		previewTitle = `SK Pensiun - ${item?.pegawai?.nama || 'Pegawai'}`;
 		showPreviewModal = true;
 	}
 </script>
@@ -604,35 +603,66 @@
 
 <!-- Modal Preview SK Pensiun PDF -->
 {#if showPreviewModal}
-	<div class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-md animate-in fade-in duration-150">
-		<div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden">
-			<div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-950/50">
-				<h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">{previewTitle}</h3>
-				<div class="flex items-center gap-2">
-					<a
-						href={previewPdfUrl}
-						target="_blank"
-						download
-						class="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 text-xs font-bold hover:bg-indigo-100 transition-colors inline-flex items-center gap-1"
+	<div 
+		class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-zinc-950/75 backdrop-blur-md animate-in fade-in duration-150"
+		onclick={(e) => {
+			if (e.target === e.currentTarget) showPreviewModal = false;
+		}}
+		role="dialog"
+		aria-modal="true"
+	>
+		<div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+			<!-- Header -->
+			<div class="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/70 dark:bg-zinc-950/70 shrink-0">
+				<div class="min-w-0 flex-1 pr-3">
+					<h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">{previewTitle}</h3>
+					<p class="text-[11px] text-zinc-500 font-mono truncate">No. SK: {currentPreviewItem?.no_sk || '-'}</p>
+				</div>
+				<div class="flex items-center gap-2 shrink-0">
+					{#if previewPdfUrl}
+						<a
+							href={previewPdfUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+							Buka di Tab Baru
+						</a>
+					{/if}
+					<button 
+						type="button"
+						onclick={() => showPreviewModal = false} 
+						class="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+						title="Tutup (Esc)"
 					>
-						Unduh PDF
-					</a>
-					<button onclick={() => showPreviewModal = false} class="text-zinc-400 hover:text-zinc-600 p-1.5 rounded-xl hover:bg-zinc-200/60 dark:hover:bg-zinc-800">
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
 					</button>
 				</div>
 			</div>
-			<div class="flex-1 bg-zinc-100 dark:bg-zinc-950 p-2 relative flex flex-col">
-				<object data={previewPdfUrl} type="application/pdf" class="w-full h-full rounded-2xl">
-					<iframe src={previewPdfUrl} title="Dokumen SK Pensiun" class="w-full h-full rounded-2xl border-0">
-						<div class="h-full flex flex-col items-center justify-center p-6 text-center">
-							<p class="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">Browser Anda tidak mendukung preview PDF langsung.</p>
-							<a href={previewPdfUrl} target="_blank" rel="noopener noreferrer" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">
-								Buka Dokumen PDF di Tab Baru
-							</a>
+
+			<!-- Body -->
+			<div class="flex-1 bg-zinc-100 dark:bg-zinc-950 p-2 sm:p-3 relative flex flex-col min-h-0 overflow-hidden">
+				{#if previewPdfUrl}
+					<object data={previewPdfUrl} type="application/pdf" class="w-full h-full rounded-2xl">
+						<iframe src={previewPdfUrl} title="Dokumen SK Pensiun" class="w-full h-full rounded-2xl border-0">
+							<div class="h-full flex flex-col items-center justify-center p-6 text-center">
+								<p class="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">Browser Anda tidak mendukung preview PDF langsung.</p>
+								<a href={previewPdfUrl} target="_blank" rel="noopener noreferrer" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">
+									Buka Dokumen PDF di Tab Baru
+								</a>
+							</div>
+						</iframe>
+					</object>
+				{:else}
+					<div class="h-full flex flex-col items-center justify-center p-6 text-center text-zinc-400">
+						<div class="w-12 h-12 rounded-2xl bg-zinc-200/60 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 mb-3">
+							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
 						</div>
-					</iframe>
-				</object>
+						<p class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Berkas SK Belum Diunggah</p>
+						<p class="text-[11px] text-zinc-400 max-w-xs mt-1">Dokumen fisik SK Pensiun belum diunggah saat penetapan pensiun ini disimpan.</p>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>
