@@ -227,9 +227,10 @@
 	}
 
 	function getFileUrl(filePath) {
-		if (!filePath) return '';
-		if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
-		const cleanPath = filePath.replace(/^\/+/, '');
+		if (!filePath || typeof filePath !== 'string') return '';
+		const cleanPath = filePath.replace(/^\/+/, '').trim();
+		if (!cleanPath) return '';
+		if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) return cleanPath;
 		return API_BASE ? `${API_BASE}/${cleanPath}` : `/${cleanPath}`;
 	}
 
