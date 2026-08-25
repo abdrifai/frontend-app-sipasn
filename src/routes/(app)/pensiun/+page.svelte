@@ -234,17 +234,41 @@
 		return API_BASE ? `${API_BASE}/${cleanPath}` : `/${cleanPath}`;
 	}
 
-	let currentPreviewItem = $state(null);
+	let pdfLoading = $state(false);
 
-	function openPdfPreview(item) {
-		currentPreviewItem = item;
-		const url = item?.file_sk ? getFileUrl(item.file_sk) : '';
-		if (url) {
-			previewPdfUrl = url;
-			previewTitle = `SK Pensiun - ${item?.pegawai?.nama || 'Pegawai'}`;
-			showPreviewModal = true;
-		} else {
+	function closePreviewModal() {
+		showPreviewModal = false;
+		if (previewPdfUrl && previewPdfUrl.startsWith('blob:')) {
+			URL.revokeObjectURL(previewPdfUrl);
+		}
+		previewPdfUrl = '';
+	}
+
+	async function openPdfPreview(item) {
+		if (!item || !item.file_sk) {
 			toast.info('Dokumen SK Pensiun belum diunggah');
+			return;
+		}
+
+		currentPreviewItem = item;
+		previewTitle = `SK Pensiun - ${item?.pegawai?.nama || 'Pegawai'}`;
+		showPreviewModal = true;
+		pdfLoading = true;
+
+		try {
+			const directUrl = getFileUrl(item.file_sk);
+			const res = await fetch(directUrl, { credentials: 'include' });
+			if (!res.ok) throw new Error('Gagal memuat berkas PDF');
+			const blob = await res.blob();
+			if (previewPdfUrl && previewPdfUrl.startsWith('blob:')) {
+				URL.revokeObjectURL(previewPdfUrl);
+			}
+			previewPdfUrl = URL.createObjectURL(blob);
+		} catch (err) {
+			console.error('PDF Blob conversion fallback:', err);
+			previewPdfUrl = getFileUrl(item.file_sk);
+		} finally {
+			pdfLoading = false;
 		}
 	}
 </script>
@@ -608,14 +632,11 @@
 />
 
 <!-- Modal Preview SK Pensiun PDF -->
-{#if showPreviewModal && previewPdfUrl}
+{#if showPreviewModal}
 	<div 
 		class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-zinc-950/75 backdrop-blur-md animate-in fade-in duration-150"
 		onclick={(e) => {
-			if (e.target === e.currentTarget) {
-				showPreviewModal = false;
-				previewPdfUrl = '';
-			}
+			if (e.target === e.currentTarget) closePreviewModal();
 		}}
 		role="dialog"
 		aria-modal="true"
@@ -641,7 +662,7 @@
 					{/if}
 					<button 
 						type="button"
-						onclick={() => showPreviewModal = false} 
+						onclick={closePreviewModal} 
 						class="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
 						title="Tutup (Esc)"
 					>
@@ -652,7 +673,11 @@
 
 			<!-- Body -->
 			<div class="flex-1 bg-zinc-100 dark:bg-zinc-950 p-2 sm:p-3 relative flex flex-col min-h-0 overflow-hidden">
-				{#if previewPdfUrl}
+				{#if pdfLoading}
+					<div class="h-full flex items-center justify-center p-6">
+						<LoadingState message="Memuat berkas PDF..." />
+					</div>
+				{:else if previewPdfUrl}
 					<iframe 
 						src={previewPdfUrl} 
 						title="Dokumen SK Pensiun" 
