@@ -705,6 +705,29 @@
 					</div>
 				{/if}
 
+				{#if isEditing}
+					<div class="p-3.5 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+						<div class="flex items-center gap-2">
+							<span class="font-bold text-zinc-500 uppercase tracking-wider text-[10px]">ID Unit:</span>
+							<span class="font-mono font-semibold text-zinc-800 dark:text-zinc-200 select-all">{form.id || '-'}</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="font-bold text-zinc-500 uppercase tracking-wider text-[10px]">ID Jabatan (`jab_id`):</span>
+							{#if form.jab_id && form.jab_id !== 'null'}
+								<span class="px-2.5 py-1 rounded-lg font-mono text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 select-all flex items-center gap-1.5">
+									<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+									{form.jab_id}
+								</span>
+							{:else}
+								<span class="px-2.5 py-1 rounded-lg font-mono text-[11px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 flex items-center gap-1.5">
+									<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+									Kosong (NULL)
+								</span>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
 				{#if currentLevel === 'induk'}
 					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<div class="space-y-1">
