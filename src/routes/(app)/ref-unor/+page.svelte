@@ -225,16 +225,31 @@
 	async function loadJabatan() {
 		if (jabatanOptions.length > 0) return;
 		try {
-			const res = await api('/ref-jabatan?limit=2000');
+			const res = await api('/ref-jabatan?limit=5000');
 			if (res?.data) {
 				jabatanOptions = res.data.map(item => ({
 					id: item.id,
 					value: item.id,
-					label: item.nm_jab,
+					label: item.nm_jab || item.nama_jabatan,
+					kategori: item.kategori,
+					eselon_id: item.eselon_id,
+					bup: item.bup
 				}));
 			}
 		} catch (err) {
 			console.error('Failed to load jabatan options:', err);
+		}
+	}
+
+	function handleJabSelect(val, opt) {
+		if (opt) {
+			form.jab_id = opt.id || opt.value || val;
+			form.nm_jab = opt.label || opt.nm_jab || opt.nama_jabatan || form.nm_jab;
+			if (opt.eselon_id) form.eselon_id = opt.eselon_id;
+			if (opt.kategori) form.kategori_jab = opt.kategori;
+			if (opt.bup) form.bup = opt.bup;
+		} else {
+			form.jab_id = '';
 		}
 	}
 
@@ -793,8 +808,28 @@
 						</div>
 
 						<div class="space-y-4">
+							<div class="p-3.5 bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/60 rounded-2xl space-y-2">
+								<Combobox
+									label="Cari & Hubungkan Master Jabatan (ref_jabatan)"
+									placeholder="Ketik kata kunci untuk mencari dari master ref_jabatan..."
+									options={jabatanOptions}
+									bind:value={form.jab_id}
+									onchange={handleJabSelect}
+								/>
+								{#if form.jab_id && form.jab_id !== 'null'}
+									<div class="flex items-center justify-between text-xs pt-1">
+										<span class="text-indigo-700 dark:text-indigo-300 font-medium">Terhubung ke <code>ref_jabatan.id</code>:</span>
+										<span class="font-mono font-bold text-indigo-900 dark:text-indigo-100">{form.jab_id}</span>
+									</div>
+								{:else}
+									<p class="text-[11px] text-amber-700 dark:text-amber-300 font-medium">
+										💡 <code>jab_id</code> saat ini <b>Kosong (NULL)</b>. Anda dapat memilih dari daftar pencarian <code>ref_jabatan</code> di atas, atau mengisikan nama di bawah.
+									</p>
+								{/if}
+							</div>
+
 							<Input
-								label="Nama Jabatan"
+								label="Nama Jabatan Pimpinan"
 								bind:value={form.nm_jab}
 								placeholder="Contoh: KEPALA DINAS KESEHATAN"
 								error={fieldErrors.nm_jab}
@@ -943,12 +978,31 @@
 						</div>
 					</div>
 				{:else if currentLevel !== 'instansi'}
-					<Input
-						label="Nama Jabatan"
-						bind:value={form.nm_jab}
-						placeholder="Masukkan Nama Jabatan"
-						error={fieldErrors.nm_jab}
-					/>
+					<div class="space-y-4 p-4 bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-800/60 rounded-2xl">
+						<Combobox
+							label="Cari & Hubungkan Master Jabatan (ref_jabatan)"
+							placeholder="Ketik kata kunci untuk mencari dari master ref_jabatan..."
+							options={jabatanOptions}
+							bind:value={form.jab_id}
+							onchange={handleJabSelect}
+						/>
+						{#if form.jab_id && form.jab_id !== 'null'}
+							<div class="flex items-center justify-between text-xs pt-1">
+								<span class="text-indigo-700 dark:text-indigo-300 font-medium">Terhubung ke <code>ref_jabatan.id</code>:</span>
+								<span class="font-mono font-bold text-indigo-900 dark:text-indigo-100">{form.jab_id}</span>
+							</div>
+						{:else}
+							<p class="text-[11px] text-amber-700 dark:text-amber-300 font-medium">
+								💡 <code>jab_id</code> saat ini <b>Kosong (NULL)</b>. Anda dapat memilih dari pencarian master di atas atau mengisikan nama di bawah.
+							</p>
+						{/if}
+						<Input
+							label="Nama Jabatan"
+							bind:value={form.nm_jab}
+							placeholder="Masukkan Nama Jabatan"
+							error={fieldErrors.nm_jab}
+						/>
+					</div>
 				{/if}
 			</div>
 
