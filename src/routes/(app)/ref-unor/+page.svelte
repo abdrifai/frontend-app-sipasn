@@ -19,6 +19,7 @@
 	let jabatanOptions = $state([]);
 	let eselonOptions = $state([]);
 	let jenisJabatanOptions = $state([]);
+	let jenjangJabatanOptions = $state([]);
 
 	// Unor Induk Filter & Search State
 	let unorIndukOptions = $state([]);
@@ -258,12 +259,17 @@
 
 	async function loadJabatanMetadata() {
 		try {
-			const [esl, jns] = await Promise.all([
+			const [esl, jns, jnj] = await Promise.all([
 				api('/ref-unor/eselon'),
-				api('/ref-jabatan/jenis?limit=100')
+				api('/ref-jabatan/jenis?limit=100'),
+				api('/ref-jabatan/jenjang?limit=100')
 			]);
 			eselonOptions = esl.data || [];
 			jenisJabatanOptions = jns.data || [];
+			jenjangJabatanOptions = (jnj.data || []).map(item => ({
+				...item,
+				id: String(item.id)
+			}));
 		} catch (err) {
 			console.error('Failed to load jabatan metadata options:', err);
 		}
@@ -278,27 +284,11 @@
 		loadJabatanMetadata();
 	});
 
-	// Filter Jenis Jabatan secara dinamis berdasarkan Kategori Jabatan yang dipilih
-	let filteredJenisJabatanOptions = $derived.by(() => {
-		if (!form.kategori_jab) return jenisJabatanOptions;
-
-		if (form.kategori_jab === 'STRUKTURAL') {
-			return jenisJabatanOptions.filter(opt => {
-				const name = (opt.jnsjab || '').toUpperCase();
-				return name.includes('STRUKTURAL') || name.includes('PIMPINAN TINGGI') || name.includes('JPT') || name.includes('TAMBAHAN') || opt.kode_sapk === 1;
-			});
-		} else if (form.kategori_jab === 'FUNGSIONAL') {
-			return jenisJabatanOptions.filter(opt => {
-				const name = (opt.jnsjab || '').toUpperCase();
-				return (name.includes('FUNGSIONAL') && !name.includes('UMUM')) || name.includes('JF') || opt.kode_sapk === 2;
-			});
-		} else if (form.kategori_jab === 'PELAKSANA') {
-			return jenisJabatanOptions.filter(opt => {
-				const name = (opt.jnsjab || '').toUpperCase();
-				return name.includes('PELAKSANA') || name.includes('UMUM') || name.includes('ADMINISTRASI') || name.includes('JA') || opt.kode_sapk === 4;
-			});
-		}
-		return jenisJabatanOptions;
+	// Filter Jenjang Jabatan secara dinamis berdasarkan Jenis Jabatan (ref_jnsjab) yang dipilih
+	let filteredJenjangJabatanOptions = $derived.by(() => {
+		if (!form.jns_jab_id) return jenjangJabatanOptions;
+		const matched = jenjangJabatanOptions.filter(opt => opt.jnsjab_id === form.jns_jab_id);
+		return matched.length > 0 ? matched : jenjangJabatanOptions;
 	});
 
 	function resetForm() {
@@ -910,34 +900,33 @@
 
 							<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								<div class="flex flex-col gap-1.5">
-									<label for="kategori_jab" class="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-										Kategori Jabatan
-									</label>
-									<select
-										id="kategori_jab"
-										bind:value={form.kategori_jab}
-										onchange={handleKategoriJabChange}
-										class="w-full bg-zinc-50/80 dark:bg-zinc-950 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium outline-none transition-all duration-200 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-400 text-zinc-900 dark:text-zinc-100"
-									>
-										<option value="STRUKTURAL">STRUKTURAL (Manajerial)</option>
-										<option value="FUNGSIONAL">FUNGSIONAL (JF)</option>
-										<option value="PELAKSANA">PELAKSANA (JA)</option>
-									</select>
-								</div>
-
-								<div class="flex flex-col gap-1.5">
 									<label for="jns_jab" class="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-										Jenis Jabatan (Referensi)
+										Jenis Jabatan
 									</label>
 									<select
 										id="jns_jab"
 										bind:value={form.jns_jab_id}
-										onchange={handleJnsJabChange}
 										class="w-full bg-zinc-50/80 dark:bg-zinc-950 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium outline-none transition-all duration-200 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-400 text-zinc-900 dark:text-zinc-100"
 									>
 										<option value="">Pilih Jenis Jabatan</option>
-										{#each filteredJenisJabatanOptions as opt}
+										{#each jenisJabatanOptions as opt}
 											<option value={opt.id}>{opt.jnsjab}</option>
+										{/each}
+									</select>
+								</div>
+
+								<div class="flex flex-col gap-1.5">
+									<label for="jenjang_jab" class="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+										Jenjang Jabatan
+									</label>
+									<select
+										id="jenjang_jab"
+										bind:value={form.jenjang_jab_id}
+										class="w-full bg-zinc-50/80 dark:bg-zinc-950 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium outline-none transition-all duration-200 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-400 text-zinc-900 dark:text-zinc-100"
+									>
+										<option value="">Pilih Jenjang Jabatan</option>
+										{#each filteredJenjangJabatanOptions as opt}
+											<option value={opt.id}>{opt.jenjangjab}</option>
 										{/each}
 									</select>
 								</div>
