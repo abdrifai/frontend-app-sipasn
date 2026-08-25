@@ -98,13 +98,42 @@
 		loadData();
 	}
 
-	function openCreate() {
+	async function fetchNextKodeForInstansi(instansiId) {
+		if (!instansiId) return '';
+		try {
+			const res = await api(`/ref-unor/jnsunor?instansi_id=${instansiId}`);
+			const list = res.data || (Array.isArray(res) ? res : []);
+			if (list.length > 0) {
+				const maxKode = Math.max(...list.map(item => parseInt(item.kode, 10)).filter(k => !isNaN(k)));
+				return maxKode + 1;
+			}
+			const ins = instansiOptions.find(i => i.id === instansiId);
+			if (ins && ins.kode) {
+				return parseInt(`${ins.kode}10`, 10);
+			}
+		} catch (err) {
+			console.error('Failed to generate next kode:', err);
+		}
+		return '';
+	}
+
+	async function openCreate() {
 		isEditing = false;
-		const defaultInstansi = instansiOptions.length > 0 ? instansiOptions[0].id : '';
-		formData = { id: '', instansi_id: defaultInstansi, kode: '', jnsunor: '' };
+		const defaultInstansi = selectedInstansiFilter || (instansiOptions.length > 0 ? instansiOptions[0].id : '');
+		const nextKode = await fetchNextKodeForInstansi(defaultInstansi);
+		formData = { id: '', instansi_id: defaultInstansi, kode: nextKode, jnsunor: '' };
 		fieldErrors = {};
 		formError = null;
 		showModal = true;
+	}
+
+	async function handleFormInstansiChange() {
+		if (!isEditing && formData.instansi_id) {
+			const nextKode = await fetchNextKodeForInstansi(formData.instansi_id);
+			if (nextKode) {
+				formData.kode = nextKode;
+			}
+		}
 	}
 
 	function openEdit(item) {
@@ -392,6 +421,7 @@
 					<select
 						id="instansi_id"
 						bind:value={formData.instansi_id}
+						onchange={handleFormInstansiChange}
 						class="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-zinc-900 dark:text-zinc-100"
 						required
 					>
