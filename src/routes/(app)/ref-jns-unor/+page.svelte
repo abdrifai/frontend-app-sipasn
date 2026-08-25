@@ -18,6 +18,7 @@
 	let page = $state(1);
 	let meta = $state({ totalPages: 1, total: 0 });
 
+	let selectedInstansiFilter = $state('');
 	let instansiOptions = $state([]);
 
 	let showModal = $state(false);
@@ -42,6 +43,12 @@
 		try {
 			const res = await api('/ref-instansi?limit=1000');
 			instansiOptions = res.data || [];
+			const tojo = instansiOptions.find(i => i.kode === 7209 || String(i.kode) === '7209' || (i.instansi || '').toUpperCase().includes('TOJO UNA-UNA'));
+			if (tojo) {
+				selectedInstansiFilter = tojo.id;
+			} else if (instansiOptions.length > 0) {
+				selectedInstansiFilter = instansiOptions[0].id;
+			}
 		} catch (err) {
 			console.error('Failed to load instansi options:', err);
 		}
@@ -51,7 +58,8 @@
 		loading = true;
 		error = null;
 		try {
-			const res = await api(`/ref-unor/jnsunor?search=${search}&page=${page}&limit=10`);
+			const queryInstansi = selectedInstansiFilter ? `&instansi_id=${selectedInstansiFilter}` : '';
+			const res = await api(`/ref-unor/jnsunor?search=${search}&page=${page}&limit=10${queryInstansi}`);
 			data = res.data || [];
 			meta = res.meta || { totalPages: 1, total: 0 };
 		} catch (err) {
@@ -79,9 +87,9 @@
 		debouncedSearch();
 	}
 
-	onMount(() => {
-		loadInstansi();
-		loadData();
+	onMount(async () => {
+		await loadInstansi();
+		await loadData();
 	});
 
 	function handleSearch() {
@@ -207,19 +215,37 @@
 	<!-- Main Card Content -->
 	<Card>
 		<!-- Filter & Search Toolbar -->
-		<div class="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-			<div class="relative w-full sm:w-80">
-				<svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-				</svg>
-				<input
-					type="text"
-					bind:value={search}
-					oninput={handleSearchInput}
-					placeholder="Cari jenis unor atau kode..."
-					class="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-zinc-900 dark:text-zinc-100"
-				/>
+		<div class="mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+				<!-- Select Filter Instansi -->
+				<div class="w-full sm:w-72">
+					<select
+						bind:value={selectedInstansiFilter}
+						onchange={() => { page = 1; loadData(); }}
+						class="w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-zinc-900 dark:text-zinc-100"
+					>
+						<option value="">Semua Instansi</option>
+						{#each instansiOptions as opt}
+							<option value={opt.id}>{opt.kode} - {opt.instansi}</option>
+						{/each}
+					</select>
+				</div>
+
+				<!-- Search Input -->
+				<div class="relative w-full sm:w-72">
+					<svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+					</svg>
+					<input
+						type="text"
+						bind:value={search}
+						oninput={handleSearchInput}
+						placeholder="Cari jenis unor atau kode..."
+						class="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-zinc-900 dark:text-zinc-100"
+					/>
+				</div>
 			</div>
+
 			{#if meta && meta.total !== undefined}
 				<span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
 					Total <b>{meta.total}</b> Data
