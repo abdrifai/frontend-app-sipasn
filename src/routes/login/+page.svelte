@@ -1,4 +1,5 @@
 <script>
+	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
 	import { authStore } from '$lib/stores/authStore';
 	import { themeStore } from '$lib/stores/themeStore';
@@ -7,12 +8,29 @@
 	import Input from '$lib/components/ui/Input.svelte';
 	import ThemeToggle from '$lib/components/ui/ThemeToggle.svelte';
 	import AppLogo from '$lib/components/ui/AppLogo.svelte';
+	import LoadingState from '$lib/components/feedback/LoadingState.svelte';
 
 	let username = $state('');
 	let password = $state('');
 	let loading = $state(false);
 	let error = $state(null);
 	let fieldErrors = $state({});
+	let checkingAuth = $state(true);
+
+	onMount(async () => {
+		try {
+			const res = await api('/auth/me');
+			if (res && res.data) {
+				authStore.setUser(res.data);
+				goto('/dashboard');
+				return;
+			}
+		} catch (err) {
+			// Sesi login belum ada / expired, tampilkan halaman login
+		} finally {
+			checkingAuth = false;
+		}
+	});
 
 	async function handleLogin(e) {
 		e.preventDefault();
@@ -48,7 +66,12 @@
 	<title>Masuk ke SIPASN | Kabupaten Tojo Una-Una</title>
 </svelte:head>
 
-<div class="min-h-screen flex flex-col md:flex-row bg-slate-50 dark:bg-zinc-950 transition-colors duration-300">
+{#if checkingAuth}
+	<div class="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
+		<LoadingState message="Memeriksa sesi login..." />
+	</div>
+{:else}
+	<div class="min-h-screen flex flex-col md:flex-row bg-slate-50 dark:bg-zinc-950 transition-colors duration-300">
 	<!-- Left Side: Official Branding & Visual Hero -->
 	<div class="hidden md:flex md:w-1/2 lg:w-3/5 bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-950 relative overflow-hidden items-center justify-center p-10 lg:p-16">
 		<!-- Ambient Glow & Orbs -->
@@ -185,4 +208,5 @@
 		</div>
 	</div>
 </div>
+{/if}
 
