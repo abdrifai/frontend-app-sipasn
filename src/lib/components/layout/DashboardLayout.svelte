@@ -25,7 +25,8 @@
 		'/ref-diklat': 'Referensi Diklat',
 		'/ref-kedudukan-pns': 'Referensi Kedudukan PNS',
 		'/ref-jns-mutasi': 'Referensi Jenis Mutasi',
-		'/ref-jns-hukuman': 'Referensi Jenis Hukuman'
+		'/ref-jns-hukuman': 'Referensi Jenis Hukuman',
+		'/ref-jns-unor': 'Referensi Jenis Unit Organisasi'
 	};
 
 	let pageTitle = $derived.by(() => {
