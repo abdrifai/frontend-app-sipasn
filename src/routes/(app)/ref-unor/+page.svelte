@@ -150,6 +150,14 @@
 		loadTree();
 	}
 
+	function refreshTreeData() {
+		if (selectedUnorIndukId) {
+			handleUnorIndukFilter();
+		} else {
+			loadTree();
+		}
+	}
+
 	let displayedTreeData = $derived.by(() => {
 		if (!searchKeyword.trim()) return treeData;
 		const kw = searchKeyword.toLowerCase().trim();
@@ -558,7 +566,7 @@
 				toast.success('Berhasil ditambahkan');
 			}
 			showModal = false;
-			loadTree();
+			refreshTreeData();
 		} catch (err) {
 			if (err.statusCode === 422) {
 				if (Array.isArray(err.errors)) {
@@ -591,7 +599,7 @@
 			await api(`${endpoint}/${itemToDelete.id}`, { method: 'DELETE' });
 			toast.success('Berhasil dihapus');
 			showDeleteConfirm = false;
-			loadTree();
+			refreshTreeData();
 		} catch (err) {
 			toast.error('Gagal menghapus: ' + err.message);
 		} finally {
