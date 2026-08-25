@@ -492,34 +492,39 @@
 			let endpoint = '/ref-unor';
 			let payload = {};
 
+			const tahunVal = form.tglPeraturan 
+				? new Date(form.tglPeraturan).getFullYear() 
+				: (form.tahun ? parseInt(form.tahun) : null);
+
+			const commonPayload = {
+				kode: form.kode || undefined,
+				nmUnor: form.nmUnor,
+				nm_jab: form.nm_jab || null,
+				kategori_jab: form.kategori_jab || 'STRUKTURAL',
+				eselon_id: form.eselon_id || null,
+				jns_jab_id: form.jns_jab_id || null,
+				jenjang_jab_id: form.jenjang_jab_id || null,
+				bup: form.bup ? parseInt(form.bup, 10) : 58,
+				kelas_jabatan: form.kelas_jabatan ? parseInt(form.kelas_jabatan, 10) : null,
+				kode_jabatan: form.kode_jabatan || null,
+				jab_id: form.jab_id || null,
+				peraturan: form.peraturan || null,
+				tglPeraturan: form.tglPeraturan || null,
+				tahun: tahunVal,
+				ket: form.ket || null,
+				isAktif: form.isAktif !== undefined && form.isAktif !== '' ? parseInt(form.isAktif, 10) : 1
+			};
+
 			if (currentLevel === 'induk') {
 				endpoint += '/induk';
 				const selectedJns = jnsUnorOptions.find(j => j.id === form.jnsUnor_id || j.value === form.jnsUnor_id);
-				const tahunVal = form.tglPeraturan 
-					? new Date(form.tglPeraturan).getFullYear() 
-					: (form.tahun ? parseInt(form.tahun) : null);
 
 				payload = {
-					kode: form.kode || undefined,
-					nmUnor: form.nmUnor,
-					nm_jab: form.nm_jab || null,
-					kategori_jab: form.kategori_jab || 'STRUKTURAL',
-					eselon_id: form.eselon_id || null,
-					jns_jab_id: form.jns_jab_id || null,
-					jenjang_jab_id: form.jenjang_jab_id || null,
-					bup: form.bup ? parseInt(form.bup, 10) : 58,
-					kelas_jabatan: form.kelas_jabatan ? parseInt(form.kelas_jabatan, 10) : null,
-					kode_jabatan: form.kode_jabatan || null,
+					...commonPayload,
 					instansi_id: form.instansi_id || null,
 					instansi_kode: form.instansi_kode || null,
 					jnsUnor_id: form.jnsUnor_id || null,
 					jnsUnor_kode: selectedJns?.kode ? String(selectedJns.kode) : (form.jnsUnor_kode ? String(form.jnsUnor_kode) : null),
-					jab_id: form.jab_id || null,
-					peraturan: form.peraturan || null,
-					tglPeraturan: form.tglPeraturan || null,
-					tahun: tahunVal,
-					ket: form.ket || null,
-					isAktif: form.isAktif !== undefined && form.isAktif !== '' ? parseInt(form.isAktif, 10) : 1
 				};
 				if (payload.instansi_id && !payload.instansi_kode) {
 					const ins = instansiOptions.find(i => i.id === payload.instansi_id);
@@ -527,32 +532,23 @@
 				}
 			} else if (currentLevel === 'unor') {
 				payload = {
-					kode: form.kode,
-					nmUnor: form.nmUnor,
-					nm_jab: form.nm_jab || null,
+					...commonPayload,
 					unorinduk_id: form.unorinduk_id,
 					unorinduk_kode: form.unorinduk_kode,
-					jab_id: form.jab_id || null
 				};
 			} else if (currentLevel === 'sub') {
 				endpoint += '/sub';
 				payload = {
-					kode: form.kode,
-					nmUnor: form.nmUnor,
-					nm_jab: form.nm_jab || null,
+					...commonPayload,
 					unor_id: form.unor_id,
 					unor_kode: form.unor_kode,
-					jab_id: form.jab_id || null
 				};
 			} else if (currentLevel === 'sub-sub') {
 				endpoint += '/sub-sub';
 				payload = {
-					kode: form.kode,
-					nmUnor: form.nmUnor,
-					nm_jab: form.nm_jab || null,
+					...commonPayload,
 					subUnor_id: form.subUnor_id,
 					subUnor_kode: form.subUnor_kode,
-					jab_id: form.jab_id || null
 				};
 			}
 
