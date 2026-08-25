@@ -66,11 +66,18 @@
 		if (search !== lastSearchUsed) {
 			handleSearch();
 		}
-	}, 500);
+	}, 400);
 
 	$effect(() => {
-		debouncedSearch();
+		const currentSearch = search;
+		if (currentSearch !== lastSearchUsed) {
+			debouncedSearch();
+		}
 	});
+
+	function handleSearchInput() {
+		debouncedSearch();
+	}
 
 	onMount(() => {
 		loadInstansi();
@@ -208,6 +215,7 @@
 				<input
 					type="text"
 					bind:value={search}
+					oninput={handleSearchInput}
 					placeholder="Cari jenis unor atau kode..."
 					class="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-zinc-900 dark:text-zinc-100"
 				/>
