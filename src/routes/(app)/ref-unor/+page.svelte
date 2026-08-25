@@ -700,16 +700,38 @@
 {#if showModal}
 	<div class="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-zinc-950/50 backdrop-blur-sm animate-in fade-in duration-200">
 		<div class="bg-white dark:bg-zinc-900 w-full max-w-3xl lg:max-w-4xl rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[90vh]">
-			<div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
-				<h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-50">
-					{#if isEditing}Ubah{:else}Tambah{/if} 
-					{#if currentLevel === 'induk'}Unit Organisasi Induk
-					{:else if currentLevel === 'unor'}Unit Organisasi
-					{:else if currentLevel === 'sub'}Sub Unit Organisasi
-					{:else if currentLevel === 'sub-sub'}Sub Unit Organisasi Sub
-					{:else}{currentLevel.toUpperCase()}{/if}
-				</h2>
-				<button onclick={() => showModal = false} class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+			<div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50 gap-4">
+				<!-- Title & Inline Toggle Status -->
+				<div class="flex flex-wrap items-center gap-3">
+					<h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-50">
+						{#if isEditing}Ubah{:else}Tambah{/if} 
+						{#if currentLevel === 'induk'}Unit Organisasi Induk
+						{:else if currentLevel === 'unor'}Unit Organisasi
+						{:else if currentLevel === 'sub'}Sub Unit Organisasi
+						{:else if currentLevel === 'sub-sub'}Sub Unit Organisasi Sub
+						{:else}{currentLevel.toUpperCase()}{/if}
+					</h2>
+
+					<!-- Toggle Switch Status (Aktif / Non Aktif) -->
+					<div class="flex items-center gap-2 px-3 py-1 rounded-full border transition-all duration-200 {form.isAktif === 1 ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800' : 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'}">
+						<button
+							type="button"
+							role="switch"
+							aria-checked={form.isAktif === 1}
+							onclick={() => form.isAktif = form.isAktif === 1 ? 0 : 1}
+							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {form.isAktif === 1 ? 'bg-emerald-500' : 'bg-rose-400'}"
+						>
+							<span
+								class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out {form.isAktif === 1 ? 'translate-x-4' : 'translate-x-0'}"
+							></span>
+						</button>
+						<span class="text-xs font-black tracking-wider uppercase {form.isAktif === 1 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}">
+							{form.isAktif === 1 ? 'Aktif' : 'Non Aktif'}
+						</span>
+					</div>
+				</div>
+
+				<button onclick={() => showModal = false} class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1.5 rounded-xl hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors">
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
 				</button>
 			</div>
@@ -817,34 +839,6 @@
 						onblur={handleNmUnorBlur}
 						required
 					/>
-				</div>
-
-				<!-- Status Unit Organisasi (Aktif / Non-Aktif) -->
-				<div class="space-y-1.5 p-3.5 bg-zinc-50/80 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl">
-					<label for="isAktif" class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block mb-1">
-						Status Unit Organisasi
-					</label>
-					<div class="grid grid-cols-2 gap-3">
-						<button
-							type="button"
-							onclick={() => form.isAktif = 1}
-							class="px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer {form.isAktif === 1 ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-sm ring-2 ring-emerald-500/20' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-850'}"
-						>
-							<span class="w-2.5 h-2.5 rounded-full {form.isAktif === 1 ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'}"></span>
-							<span>AKTIF</span>
-						</button>
-						<button
-							type="button"
-							onclick={() => form.isAktif = 0}
-							class="px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer {form.isAktif === 0 ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-500 text-rose-700 dark:text-rose-300 shadow-sm ring-2 ring-rose-500/20' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-850'}"
-						>
-							<span class="w-2.5 h-2.5 rounded-full {form.isAktif === 0 ? 'bg-rose-500' : 'bg-zinc-400'}"></span>
-							<span>NON AKTIF</span>
-						</button>
-					</div>
-					{#if fieldErrors.isAktif}
-						<p class="text-xs text-rose-500 font-semibold">{fieldErrors.isAktif}</p>
-					{/if}
 				</div>
 
 				{#if currentLevel !== 'instansi'}
