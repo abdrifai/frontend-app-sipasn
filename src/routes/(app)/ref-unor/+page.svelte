@@ -819,6 +819,34 @@
 					/>
 				</div>
 
+				<!-- Status Unit Organisasi (Aktif / Non-Aktif) -->
+				<div class="space-y-1.5 p-3.5 bg-zinc-50/80 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl">
+					<label for="isAktif" class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block mb-1">
+						Status Unit Organisasi
+					</label>
+					<div class="grid grid-cols-2 gap-3">
+						<button
+							type="button"
+							onclick={() => form.isAktif = 1}
+							class="px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer {form.isAktif === 1 ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-sm ring-2 ring-emerald-500/20' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-850'}"
+						>
+							<span class="w-2.5 h-2.5 rounded-full {form.isAktif === 1 ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'}"></span>
+							<span>AKTIF</span>
+						</button>
+						<button
+							type="button"
+							onclick={() => form.isAktif = 0}
+							class="px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer {form.isAktif === 0 ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-500 text-rose-700 dark:text-rose-300 shadow-sm ring-2 ring-rose-500/20' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-850'}"
+						>
+							<span class="w-2.5 h-2.5 rounded-full {form.isAktif === 0 ? 'bg-rose-500' : 'bg-zinc-400'}"></span>
+							<span>NON AKTIF</span>
+						</button>
+					</div>
+					{#if fieldErrors.isAktif}
+						<p class="text-xs text-rose-500 font-semibold">{fieldErrors.isAktif}</p>
+					{/if}
+				</div>
+
 				{#if currentLevel !== 'instansi'}
 					<!-- Section Header: Master Jabatan Pimpinan -->
 					<div class="pt-3 pb-1 border-t border-zinc-200/80 dark:border-zinc-800">
@@ -1022,33 +1050,6 @@
 								></textarea>
 								{#if fieldErrors.ket}
 									<p class="text-xs text-rose-500">{fieldErrors.ket}</p>
-								{/if}
-							</div>
-
-							<div class="space-y-1.5">
-								<label for="isAktif" class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-									Status Unit Organisasi
-								</label>
-								<div class="grid grid-cols-2 gap-3">
-									<button
-										type="button"
-										onclick={() => form.isAktif = 1}
-										class="px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer {form.isAktif === 1 ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-sm ring-2 ring-emerald-500/20' : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900'}"
-									>
-										<span class="w-2 h-2 rounded-full {form.isAktif === 1 ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'}"></span>
-										<span>AKTIF</span>
-									</button>
-									<button
-										type="button"
-										onclick={() => form.isAktif = 0}
-										class="px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer {form.isAktif === 0 ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-500 text-rose-700 dark:text-rose-300 shadow-sm ring-2 ring-rose-500/20' : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900'}"
-									>
-										<span class="w-2 h-2 rounded-full {form.isAktif === 0 ? 'bg-rose-500' : 'bg-zinc-400'}"></span>
-										<span>NON AKTIF</span>
-									</button>
-								</div>
-								{#if fieldErrors.isAktif}
-									<p class="text-xs text-rose-500 font-semibold">{fieldErrors.isAktif}</p>
 								{/if}
 							</div>
 						</div>
