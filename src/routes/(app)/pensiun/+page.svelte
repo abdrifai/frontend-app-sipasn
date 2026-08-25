@@ -36,6 +36,7 @@
 
 	let previewPdfUrl = $state('');
 	let previewTitle = $state('');
+	let currentPreviewItem = $state(null);
 
 	let itemToDelete = $state(null);
 	let deleteLoading = $state(false);
