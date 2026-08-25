@@ -825,11 +825,8 @@
 											Ubah / Cari Jabatan Lain
 										</button>
 									</div>
-									<div class="p-3 bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800 rounded-xl flex flex-wrap items-center justify-between gap-3">
+									<div class="p-3 bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800 rounded-xl">
 										<span class="text-sm font-bold text-zinc-900 dark:text-zinc-100">{form.nm_jab || '-'}</span>
-										<span class="px-2.5 py-0.5 rounded-lg font-mono text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-											jab_id: {form.jab_id}
-										</span>
 									</div>
 								</div>
 							{:else}
@@ -1030,11 +1027,8 @@
 									Ubah / Cari Jabatan Lain
 								</button>
 							</div>
-							<div class="p-3 bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800 rounded-xl flex flex-wrap items-center justify-between gap-3">
+							<div class="p-3 bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800 rounded-xl">
 								<span class="text-sm font-bold text-zinc-900 dark:text-zinc-100">{form.nm_jab || '-'}</span>
-								<span class="px-2.5 py-0.5 rounded-lg font-mono text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-									jab_id: {form.jab_id}
-								</span>
 							</div>
 						</div>
 					{:else}
