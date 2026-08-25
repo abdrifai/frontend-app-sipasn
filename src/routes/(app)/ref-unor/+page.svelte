@@ -1052,11 +1052,11 @@
 							</div>
 
 							<div class="space-y-1">
-								<label for="ket" class="text-xs font-bold uppercase tracking-wider text-zinc-400">Keterangan</label>
+								<label for="ket" class="text-xs font-bold uppercase tracking-wider text-zinc-400">Tentang Peraturan / Keterangan</label>
 								<textarea
 									id="ket"
 									bind:value={form.ket}
-									placeholder="Keterangan tambahan..."
+									placeholder="Penjelasan tentang peraturan atau keterangan tambahan..."
 									rows="2"
 									class="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
 								></textarea>
