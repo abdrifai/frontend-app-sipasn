@@ -232,6 +232,8 @@
 					id: item.id,
 					value: item.id,
 					label: item.nm_jab || item.nama_jabatan,
+					nama_jabatan_murni: item.nama_jabatan_murni || item.nama_jabatan,
+					unit_terhubung: item.unit_terhubung,
 					kategori: item.kategori,
 					eselon_id: item.eselon_id,
 					bup: item.bup
@@ -245,7 +247,7 @@
 	function handleJabSelect(val, opt) {
 		if (opt) {
 			form.jab_id = opt.id || opt.value || val;
-			form.nm_jab = opt.label || opt.nm_jab || opt.nama_jabatan || form.nm_jab;
+			form.nm_jab = opt.nama_jabatan_murni || (opt.label ? opt.label.split(' — (')[0] : form.nm_jab);
 			if (opt.eselon_id) form.eselon_id = opt.eselon_id;
 			if (opt.kategori) form.kategori_jab = opt.kategori;
 			if (opt.bup) form.bup = opt.bup;
