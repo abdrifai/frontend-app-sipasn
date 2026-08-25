@@ -238,9 +238,14 @@
 
 	function openPdfPreview(item) {
 		currentPreviewItem = item;
-		previewPdfUrl = item?.file_sk ? getFileUrl(item.file_sk) : '';
-		previewTitle = `SK Pensiun - ${item?.pegawai?.nama || 'Pegawai'}`;
-		showPreviewModal = true;
+		const url = item?.file_sk ? getFileUrl(item.file_sk) : '';
+		if (url) {
+			previewPdfUrl = url;
+			previewTitle = `SK Pensiun - ${item?.pegawai?.nama || 'Pegawai'}`;
+			showPreviewModal = true;
+		} else {
+			toast.info('Dokumen SK Pensiun belum diunggah');
+		}
 	}
 </script>
 
@@ -603,11 +608,14 @@
 />
 
 <!-- Modal Preview SK Pensiun PDF -->
-{#if showPreviewModal}
+{#if showPreviewModal && previewPdfUrl}
 	<div 
 		class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-zinc-950/75 backdrop-blur-md animate-in fade-in duration-150"
 		onclick={(e) => {
-			if (e.target === e.currentTarget) showPreviewModal = false;
+			if (e.target === e.currentTarget) {
+				showPreviewModal = false;
+				previewPdfUrl = '';
+			}
 		}}
 		role="dialog"
 		aria-modal="true"
