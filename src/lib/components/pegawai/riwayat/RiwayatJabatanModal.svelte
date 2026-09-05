@@ -45,6 +45,7 @@
 	let refEselon = $state([]);
 	let refJenisMutasi = $state([]);
 	let refDaftarJabatan = $state([]);
+	let refJenjangEselonMap = $state({});
 
 	// Combobox Options
 	let unorOptions = $derived(
@@ -56,6 +57,7 @@
 				nm_jab: u.nm_jab,
 				jab_id: u.resolved_jab_id || u.jab_id,
 				jns_jab_id: u.jns_jab_id,
+				jenjang_jab_id: u.jenjang_jab_id,
 				eselon_id: u.eselon_id,
 				isAktif: u.isAktif,
 			}))
@@ -87,7 +89,8 @@
 			text.includes('PENGAWAS') ||
 			text.includes('PIMPINAN TINGGI') ||
 			text.includes('JPT') ||
-			text.includes('STRUKTURAL')
+			text.includes('STRUKTURAL') ||
+			text.includes('ADMINISTRASI')
 		);
 	});
 
@@ -116,9 +119,16 @@
 		refJenisMutasi.map(m => ({ value: m.id, label: m.jnsMutasi }))
 	);
 
-	let eselonOptions = $derived(
-		refEselon.map(e => ({ value: e.id, label: e.eselon }))
-	);
+	let eselonOptions = $derived.by(() => {
+		const validEselonIds = refJenjangEselonMap[String(jnsJab_id)];
+		if (validEselonIds && validEselonIds.length > 0) {
+			const filtered = refEselon.filter(e => validEselonIds.includes(e.id));
+			if (filtered.length > 0) {
+				return filtered.map(e => ({ value: e.id, label: e.eselon }));
+			}
+		}
+		return refEselon.map(e => ({ value: e.id, label: e.eselon }));
+	});
 
 	// Helper formatDate to YYYY-MM-DD for input[type="date"]
 	function toDateInputVal(dateVal) {
@@ -224,11 +234,30 @@
 				refEselon = res.data.eselon || [];
 				refJenisMutasi = res.data.jenis_mutasi || [];
 				refDaftarJabatan = res.data.daftar_jabatan || [];
+				refJenjangEselonMap = res.data.jenjang_eselon_map || {};
 			}
 		} catch (err) {
 			console.error('Gagal memuat referensi jabatan', err);
 		} finally {
 			loadingRef = false;
+		}
+	}
+
+	function handleJenjangChange(selectedId, opt) {
+		jnsJab_id = selectedId || '';
+		if (!selectedId) return;
+
+		const validEselonIds = refJenjangEselonMap[String(selectedId)];
+		if (validEselonIds && validEselonIds.length > 0) {
+			if (!eselon_id || !validEselonIds.includes(eselon_id)) {
+				eselon_id = validEselonIds[0];
+			}
+		} else {
+			// Jika jenjang pelaksana/fungsional (misal ID 3, 4, 5) tanpa eselon struktural
+			const nonEselon = refEselon.find(e => (e.eselon || '').toUpperCase().includes('NON'));
+			if (nonEselon && (String(selectedId) === '3' || String(selectedId) === '4' || String(selectedId) === '5')) {
+				eselon_id = nonEselon.id;
+			}
 		}
 	}
 
@@ -239,38 +268,40 @@
 		let targetNmJab = node?.nm_jab;
 		let targetJabId = node?.jab_id || node?.resolved_jab_id;
 		let targetJnsJabId = node?.jns_jab_id;
+		let targetJenjangJabId = node?.jenjang_jab_id;
 		let targetEselonId = node?.eselon_id;
 
-		if (!targetNmJab) {
+		if (!targetNmJab || !targetJenjangJabId || !targetEselonId) {
 			const found = refUnorInduk.find(u => u.id === selectedId);
 			if (found) {
-				targetNmJab = found.nm_jab;
-				targetJabId = found.resolved_jab_id || found.jab_id;
-				targetJnsJabId = found.jns_jab_id;
-				targetEselonId = found.eselon_id;
+				if (!targetNmJab) targetNmJab = found.nm_jab;
+				if (!targetJabId) targetJabId = found.resolved_jab_id || found.jab_id;
+				if (!targetJnsJabId) targetJnsJabId = found.jns_jab_id;
+				if (!targetJenjangJabId) targetJenjangJabId = found.jenjang_jab_id;
+				if (!targetEselonId) targetEselonId = found.eselon_id;
 			}
 		}
 
-		if (!isFungsional) {
-			if (targetNmJab) {
-				nama_jabatan = targetNmJab;
+		if (targetNmJab) {
+			nama_jabatan = targetNmJab;
+		}
+		if (targetJabId) {
+			nmJab_id = targetJabId;
+		}
+		if (targetJenjangJabId) {
+			jnsJab_id = String(targetJenjangJabId);
+		} else if (targetJnsJabId) {
+			const matchJenjang = refJenjangJabatan.find(
+				j => String(j.id) === String(targetJnsJabId) || String(j.jnsjab_id) === String(targetJnsJabId)
+			);
+			if (matchJenjang) {
+				jnsJab_id = String(matchJenjang.id);
+			} else {
+				jnsJab_id = String(targetJnsJabId);
 			}
-			if (targetJabId) {
-				nmJab_id = targetJabId;
-			}
-			if (targetJnsJabId) {
-				jnsJab_id = targetJnsJabId;
-			} else if (!jnsJab_id) {
-				const struktural = refJenisJabatan.find(j => (j.jnsjab || '').toUpperCase().includes('STRUKTURAL'));
-				if (struktural) jnsJab_id = struktural.id;
-			}
-			if (targetEselonId) {
-				eselon_id = targetEselonId;
-			}
-		} else {
-			if (targetEselonId) {
-				eselon_id = targetEselonId;
-			}
+		}
+		if (targetEselonId) {
+			eselon_id = targetEselonId;
 		}
 	}
 
@@ -464,7 +495,8 @@
 					<div class="space-y-1">
 						<Combobox 
 							options={jenjangOptions.length > 0 ? jenjangOptions : refJenisJabatan.map(j => ({ value: j.id, label: j.jnsjab }))}
-							bind:value={jnsJab_id}
+							value={jnsJab_id}
+							onchange={handleJenjangChange}
 							label="Jenjang Jabatan"
 							placeholder="Pilih atau cari Jenjang Jabatan..."
 							disabled={loading || loadingRef}

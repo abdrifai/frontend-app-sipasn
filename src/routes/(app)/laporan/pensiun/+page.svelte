@@ -28,7 +28,7 @@
 	let selectedTahun = $state(currentYear.toString());
 	let selectedBulan = $state('all');
 	let selectedRentang = $state('');
-	let selectedKategori = $state('all');
+	let selectedJnsJabId = $state('all');
 	let selectedUnorId = $state('');
 	let search = $state('');
 	let page = $state(1);
@@ -38,6 +38,7 @@
 	let exporting = $state(false);
 	let error = $state(null);
 	let unorOptions = $state([]);
+	let jenisJabatanOptions = $state([]);
 
 	const months = [
 		{ val: 'all', label: 'Semua Bulan' },
@@ -80,6 +81,15 @@
 		}
 	}
 
+	async function loadJenisJabatanOptions() {
+		try {
+			const res = await api('/ref-jabatan/jenis?is_aktif=1&limit=100');
+			jenisJabatanOptions = res.data || [];
+		} catch (err) {
+			console.error('Gagal memuat opsi jenis jabatan:', err);
+		}
+	}
+
 	async function loadData() {
 		loading = true;
 		error = null;
@@ -89,7 +99,7 @@
 				limit: '15',
 				search: search.trim(),
 				...(selectedUnorId ? { unorInduk_id: selectedUnorId } : {}),
-				...(selectedKategori && selectedKategori !== 'all' ? { kategori: selectedKategori } : {}),
+				...(selectedJnsJabId && selectedJnsJabId !== 'all' ? { jns_jab_id: selectedJnsJabId } : {}),
 				...(selectedBulan && selectedBulan !== 'all' ? { bulan: selectedBulan } : {}),
 			});
 
@@ -103,7 +113,7 @@
 				queryParams.set('tahun', selectedTahun);
 			}
 
-			const res = await api(`/pegawai/pensiun?${queryParams.toString()}`);
+			const res = await api(`/pensiun/proyeksi?${queryParams.toString()}`);
 			data = res.data.data;
 			stats = res.data.stats;
 			meta = res.meta;
@@ -144,7 +154,7 @@
 		const queryParams = new URLSearchParams({
 			...(search ? { search: search.trim() } : {}),
 			...(selectedUnorId ? { unorInduk_id: selectedUnorId } : {}),
-			...(selectedKategori && selectedKategori !== 'all' ? { kategori: selectedKategori } : {}),
+			...(selectedJnsJabId && selectedJnsJabId !== 'all' ? { jns_jab_id: selectedJnsJabId } : {}),
 			...(selectedBulan && selectedBulan !== 'all' ? { bulan: selectedBulan } : {}),
 		});
 
@@ -158,7 +168,7 @@
 			queryParams.set('tahun', selectedTahun);
 		}
 
-		const url = `${import.meta.env.VITE_API_URL}/pegawai/pensiun/export?${queryParams.toString()}`;
+		const url = `${import.meta.env.VITE_API_URL}/pensiun/proyeksi/export?${queryParams.toString()}`;
 		window.open(url, '_blank');
 	}
 
@@ -202,6 +212,7 @@
 
 	onMount(() => {
 		loadUnorOptions();
+		loadJenisJabatanOptions();
 		loadData();
 	});
 </script>
@@ -338,17 +349,17 @@
 					</select>
 				</div>
 
-				<!-- Kategori Jabatan Filter -->
+				<!-- Jenis Jabatan Filter -->
 				<div>
 					<select
-						bind:value={selectedKategori}
+						bind:value={selectedJnsJabId}
 						onchange={handleFilterChange}
 						class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 cursor-pointer"
 					>
-						<option value="all">Semua Kategori</option>
-						<option value="STRUKTURAL">Struktural / Manajerial</option>
-						<option value="FUNGSIONAL">Fungsional (JF)</option>
-						<option value="PELAKSANA">Pelaksana (JA)</option>
+						<option value="all">Semua Jenis Jabatan</option>
+						{#each jenisJabatanOptions as opt}
+							<option value={opt.id}>{opt.jnsjab}</option>
+						{/each}
 					</select>
 				</div>
 			</div>

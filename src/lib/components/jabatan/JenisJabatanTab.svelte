@@ -16,6 +16,7 @@
 	let loading = $state(true);
 	let error = $state(null);
 	let search = $state('');
+	let selectedStatus = $state('');
 	let page = $state(1);
 	let meta = $state({ totalPages: 1 });
 
@@ -33,14 +34,16 @@
 		id: '',
 		kode: '',
 		jnsjab: '',
-		kode_sapk: ''
+		kode_sapk: '',
+		is_aktif: 1
 	});
 
 	async function loadData() {
 		loading = true;
 		error = null;
 		try {
-			const res = await api(`/ref-jabatan/jenis?search=${search}&page=${page}`);
+			const statusQuery = selectedStatus !== '' ? `&is_aktif=${selectedStatus}` : '';
+			const res = await api(`/ref-jabatan/jenis?search=${search}&page=${page}${statusQuery}`);
 			data = res.data;
 			meta = res.meta;
 		} catch (err) {
@@ -65,7 +68,7 @@
 
 	function openCreate() {
 		isEditing = false;
-		formData = { id: '', kode: '', jnsjab: '', kode_sapk: '' };
+		formData = { id: '', kode: '', jnsjab: '', kode_sapk: '', is_aktif: 1 };
 		fieldErrors = {};
 		formError = null;
 		showModal = true;
@@ -77,7 +80,8 @@
 			id: item.id, 
 			kode: item.kode, 
 			jnsjab: item.jnsjab, 
-			kode_sapk: item.kode_sapk || '' 
+			kode_sapk: item.kode_sapk || '',
+			is_aktif: item.is_aktif !== undefined && item.is_aktif !== null ? item.is_aktif : 1
 		};
 		fieldErrors = {};
 		formError = null;
@@ -92,7 +96,8 @@
 			const payload = {
 				kode: formData.kode,
 				jnsjab: formData.jnsjab,
-				kode_sapk: formData.kode_sapk ? parseInt(formData.kode_sapk) : null
+				kode_sapk: formData.kode_sapk ? parseInt(formData.kode_sapk) : null,
+				is_aktif: formData.is_aktif !== undefined ? parseInt(formData.is_aktif) : 1
 			};
 
 			if (isEditing) {
@@ -142,18 +147,31 @@
 </script>
 
 <div class="space-y-4">
-	<div class="flex justify-between items-center">
-		<div class="relative w-72">
-			<span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">
-				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-			</span>
-			<input
-				type="text"
-				bind:value={search}
-				placeholder="Cari jenis jabatan..."
-				class="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
-			/>
+	<div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+		<div class="flex items-center gap-3 flex-1 flex-wrap">
+			<div class="relative w-full sm:w-72">
+				<span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">
+					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+				</span>
+				<input
+					type="text"
+					bind:value={search}
+					placeholder="Cari jenis jabatan..."
+					class="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+				/>
+			</div>
+
+			<select
+				bind:value={selectedStatus}
+				onchange={() => { page = 1; loadData(); }}
+				class="px-3.5 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+			>
+				<option value="">Semua Status</option>
+				<option value="1">Aktif</option>
+				<option value="0">Non-Aktif</option>
+			</select>
 		</div>
+
 		<Button variant="primary" onclick={openCreate}>
 			<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
 			Tambah Baru
@@ -174,6 +192,7 @@
 						<th class="px-6 py-4">Kode</th>
 						<th class="px-6 py-4">Jenis Jabatan</th>
 						<th class="px-6 py-4">Kode SAPK</th>
+						<th class="px-6 py-4 text-center">Status</th>
 						<th class="px-6 py-4 text-right">Aksi</th>
 					</tr>
 				</thead>
@@ -198,11 +217,17 @@
 								{/if}
 							</td>
 							<td class="px-6 py-4 text-zinc-500 dark:text-zinc-400">{item.kode_sapk || '-'}</td>
+							<td class="px-6 py-4 text-center">
+								<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold {item.is_aktif === 1 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80' : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/80'}">
+									<span class="w-1.5 h-1.5 rounded-full {item.is_aktif === 1 ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+									{item.is_aktif === 1 ? 'Aktif' : 'Non-Aktif'}
+								</span>
+							</td>
 							<td class="px-6 py-4 text-right whitespace-nowrap space-x-1">
-								<button class="p-2 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg transition-all" onclick={() => openEdit(item)}>
+								<button class="p-2 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg transition-all" onclick={() => openEdit(item)} title="Ubah Jenis Jabatan">
 									<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
 								</button>
-								<button class="p-2 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all" onclick={() => confirmDelete(item)}>
+								<button class="p-2 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all" onclick={() => confirmDelete(item)} title="Hapus Jenis Jabatan">
 									<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
 								</button>
 							</td>
@@ -229,10 +254,31 @@
 {#if showModal}
 	<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm">
 		<div class="bg-white dark:bg-zinc-900 w-full max-w-md rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-			<div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
-				<h2 class="text-sm font-black uppercase tracking-widest text-zinc-900 dark:text-zinc-50">
-					{isEditing ? 'Ubah Jenis Jabatan' : 'Tambah Jenis Jabatan'}
-				</h2>
+			<div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50 gap-4">
+				<div class="flex items-center gap-3 flex-wrap">
+					<h2 class="text-sm font-black uppercase tracking-widest text-zinc-900 dark:text-zinc-50">
+						{isEditing ? 'Ubah Jenis Jabatan' : 'Tambah Jenis Jabatan'}
+					</h2>
+
+					<!-- Toggle Switch Status (Aktif / Non Aktif) -->
+					<div class="flex items-center gap-2 px-3 py-1 rounded-full border transition-all duration-200 {formData.is_aktif === 1 ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800' : 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'}">
+						<button
+							type="button"
+							role="switch"
+							aria-checked={formData.is_aktif === 1}
+							onclick={() => formData.is_aktif = formData.is_aktif === 1 ? 0 : 1}
+							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {formData.is_aktif === 1 ? 'bg-emerald-500' : 'bg-rose-400'}"
+						>
+							<span
+								class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out {formData.is_aktif === 1 ? 'translate-x-4' : 'translate-x-0'}"
+							></span>
+						</button>
+						<span class="text-xs font-black tracking-wider uppercase {formData.is_aktif === 1 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}">
+							{formData.is_aktif === 1 ? 'Aktif' : 'Non Aktif'}
+						</span>
+					</div>
+				</div>
+
 				<button onclick={() => showModal = false} class="p-2 -mr-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors" aria-label="Tutup">
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
 				</button>

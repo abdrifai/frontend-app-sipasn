@@ -30,6 +30,11 @@
 	let loading = $state(true);
 	let error = $state(null);
 	let selectedInstansiKode = $state(7209);
+
+	// Tree Selection & Preservation State
+	let selectedId = $state(null);
+	let expandedKeys = $state(new Set());
+	let activeParentItem = $state(null);
 	
 	// Modal & Form State
 	let showModal = $state(false);
@@ -200,15 +205,52 @@
 		return filterNodes(treeData);
 	});
 
+	function updateNodeInTree(items, id, updatedFields) {
+		return items.map(node => {
+			if (String(node.id) === String(id)) {
+				return { ...node, ...updatedFields };
+			}
+			if (node.children && node.children.length > 0) {
+				return { ...node, children: updateNodeInTree(node.children, id, updatedFields) };
+			}
+			return node;
+		});
+	}
+
+	function removeNodeFromTree(items, id) {
+		return items
+			.filter(node => String(node.id) !== String(id))
+			.map(node => {
+				if (node.children && node.children.length > 0) {
+					const newChildren = removeNodeFromTree(node.children, id);
+					return {
+						...node,
+						children: newChildren,
+						hasChildren: newChildren.length > 0
+					};
+				}
+				return node;
+			});
+	}
+
 	async function loadChildren(parentId, level) {
 		try {
 			const res = await api(`/ref-unor/tree?level=${level}&parentId=${parentId}`);
+			const newChildren = res.data || [];
 			
-			// Deep recursive update that returns a new array to ensure reactivity
+			// Deep recursive update that returns a new array to ensure reactivity,
+			// while preserving existing loaded sub-children if present
 			const updateItems = (items) => {
 				return items.map(item => {
-					if (item.id === parentId && item.level === level) {
-						return { ...item, children: res.data };
+					if (String(item.id) === String(parentId) && item.level === level) {
+						const mergedChildren = newChildren.map(nc => {
+							const existing = (item.children || []).find(ec => String(ec.id) === String(nc.id) && ec.level === nc.level);
+							if (existing && existing.children && existing.children.length > 0) {
+								return { ...nc, children: existing.children, hasChildren: existing.hasChildren };
+							}
+							return nc;
+						});
+						return { ...item, hasChildren: mergedChildren.length > 0, children: mergedChildren };
 					}
 					if (item.children && item.children.length > 0) {
 						return { ...item, children: updateItems(item.children) };
@@ -287,7 +329,7 @@
 		try {
 			const [esl, jns, jnj] = await Promise.all([
 				api('/ref-unor/eselon'),
-				api('/ref-jabatan/jenis?limit=100'),
+				api('/ref-jabatan/jenis?limit=100&is_aktif=1'),
 				api('/ref-jabatan/jenjang?limit=100')
 			]);
 			eselonOptions = esl.data || [];
@@ -317,16 +359,22 @@
 		return matched.length > 0 ? matched : jenjangJabatanOptions;
 	});
 
+	// ID tetap Jabatan Administrasi (JA) dari tabel ref_jnsjab
+	const JA_ID = '4a71c9b4-e57d-439d-8ccd-e8bf3ec83de5';
+
 	function resetForm() {
 		isChangingJabatan = false;
-		const defStruk = jenisJabatanOptions.find(j => (j.jnsjab || '').toUpperCase() === 'STRUKTURAL' || j.kode === '10');
+		// Default ke Jabatan Administrasi (JA) berdasarkan ID, fallback ke pencarian nama
+		const defAdm = jenisJabatanOptions.find(j => j.id === JA_ID)
+			|| jenisJabatanOptions.find(j => (j.jnsjab || '').toUpperCase().includes('ADMINISTRASI'))
+			|| jenisJabatanOptions.filter(j => j.is_aktif === 1)[0];
 
 		form = {
 			id: '', kode: '', nmUnor: '',
 			jab_id: '', nm_jab: '',
-			kategori_jab: 'STRUKTURAL',
+			kategori_jab: 'PELAKSANA',
 			eselon_id: '',
-			jns_jab_id: defStruk ? defStruk.id : '',
+			jns_jab_id: defAdm ? defAdm.id : '',
 			jenjang_jab_id: '',
 			bup: 58,
 			kelas_jabatan: '',
@@ -421,6 +469,7 @@
 
 	function handleAddRoot() {
 		isEditing = false;
+		activeParentItem = null;
 		currentLevel = 'induk';
 		resetForm();
 		showModal = true;
@@ -428,6 +477,8 @@
 
 	function handleAddChild(parent) {
 		isEditing = false;
+		activeParentItem = parent;
+		selectedId = parent.id;
 		resetForm();
 		
 		if (parent.level === 'instansi') {
@@ -454,6 +505,7 @@
 
 	async function handleEdit(item) {
 		isEditing = true;
+		selectedId = item.id;
 		currentLevel = item.level;
 		formError = null;
 		fieldErrors = {};
@@ -574,20 +626,67 @@
 			const id = form.id;
 
 			if (isEditing) {
-				await api(`${endpoint}/${id}`, {
+				const res = await api(`${endpoint}/${id}`, {
 					method: 'PATCH',
 					body: JSON.stringify(payload)
 				});
 				toast.success('Berhasil diperbarui');
+
+				const selectedEselon = eselonOptions.find(e => e.id === form.eselon_id);
+				const selectedJenjang = jenjangJabatanOptions.find(j => String(j.id) === String(form.jenjang_jab_id));
+				const selectedJnsJab = jenisJabatanOptions.find(j => j.id === form.jns_jab_id);
+
+				// In-place update in treeData without resetting tree
+				treeData = updateNodeInTree(treeData, id, {
+					nmUnor: form.nmUnor,
+					nm_jab: form.nm_jab,
+					isAktif: form.isAktif,
+					kategori_jab: form.kategori_jab,
+					eselon_id: form.eselon_id,
+					eselon: selectedEselon?.eselon || null,
+					jnsUnor_id: form.jnsUnor_id,
+					jns_jab_id: form.jns_jab_id,
+					jns_jab: selectedJnsJab?.jnsjab || null,
+					jenjang_jab_id: form.jenjang_jab_id,
+					jenjang_jab: selectedJenjang?.jenjangjab || null,
+					bup: form.bup,
+					ket: form.ket,
+					...(res?.data || {})
+				});
+				selectedId = id;
 			} else {
-				await api(endpoint, {
+				const res = await api(endpoint, {
 					method: 'POST',
 					body: JSON.stringify(payload)
 				});
 				toast.success('Berhasil ditambahkan');
+
+				const newRecord = res?.data;
+
+				if (activeParentItem) {
+					// Mark parent as expanded
+					const parentKey = `${activeParentItem.level}-${activeParentItem.id}`;
+					expandedKeys.add(parentKey);
+					expandedKeys = new Set(expandedKeys);
+
+					// Refresh only this parent's branch
+					await loadChildren(activeParentItem.id, activeParentItem.level);
+					if (newRecord?.id) {
+						selectedId = newRecord.id;
+					}
+				} else {
+					// Root node added
+					if (selectedUnorIndukId) {
+						await handleUnorIndukFilter();
+					} else {
+						await loadTree();
+					}
+					if (newRecord?.id) {
+						selectedId = newRecord.id;
+					}
+				}
 			}
 			showModal = false;
-			refreshTreeData();
 		} catch (err) {
 			if (err.statusCode === 422) {
 				if (Array.isArray(err.errors)) {
@@ -620,7 +719,10 @@
 			await api(`${endpoint}/${itemToDelete.id}`, { method: 'DELETE' });
 			toast.success('Berhasil dihapus');
 			showDeleteConfirm = false;
-			refreshTreeData();
+
+			// In-place remove from treeData
+			treeData = removeNodeFromTree(treeData, itemToDelete.id);
+			selectedId = null;
 		} catch (err) {
 			toast.error('Gagal menghapus: ' + err.message);
 		} finally {
@@ -701,13 +803,16 @@
 			<EmptyState message="Tidak ada unit organisasi yang sesuai dengan filter/pencarian." />
 		{:else}
 			<div class="space-y-1">
-				{#each displayedTreeData as item}
+				{#each displayedTreeData as item (item.id)}
 					<UnorTreeItem 
 						{item} 
 						onEdit={handleEdit} 
 						onDelete={handleDelete} 
 						onAddChild={handleAddChild} 
 						{loadChildren}
+						{selectedId}
+						onSelect={(selectedItem) => { selectedId = selectedItem.id; }}
+						bind:expandedKeys
 					/>
 				{/each}
 			</div>
@@ -981,7 +1086,7 @@
 										class="w-full bg-zinc-50/80 dark:bg-zinc-950 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium outline-none transition-all duration-200 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-400 text-zinc-900 dark:text-zinc-100"
 									>
 										<option value="">Pilih Jenis Jabatan</option>
-										{#each jenisJabatanOptions as opt}
+										{#each jenisJabatanOptions.filter(opt => opt.is_aktif === 1) as opt}
 											<option value={opt.id}>{opt.jnsjab}</option>
 										{/each}
 									</select>

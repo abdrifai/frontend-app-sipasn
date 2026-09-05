@@ -96,6 +96,10 @@
 							path: '/users'
 						},
 						{
+							name: 'Import Data PNS',
+							path: '/import-pns'
+						},
+						{
 							name: 'Master Referensi',
 							id: 'referensi',
 							isSubGroup: true,
@@ -130,7 +134,7 @@
 	// Auto-expand if child is active
 	$effect(() => {
 		const path = $page.url.pathname;
-		if (path === '/users') expandedGroups.pengaturan = true;
+		if (path === '/users' || path === '/import-pns') expandedGroups.pengaturan = true;
 		if (path.startsWith('/ref-')) {
 			expandedGroups.pengaturan = true;
 			expandedGroups.referensi = true;
