@@ -10,6 +10,7 @@
 	import ErrorState from '$lib/components/feedback/ErrorState.svelte';
 	import EmptyState from '$lib/components/feedback/EmptyState.svelte';
 	import UnorTreeItem from '$lib/components/referensi/UnorTreeItem.svelte';
+	import UnorTreePickerItem from '$lib/components/referensi/UnorTreePickerItem.svelte';
 	import Combobox from '$lib/components/ui/Combobox.svelte';
 
 	// Data State
@@ -50,6 +51,28 @@
 	let itemToDelete = $state(null);
 	let deleteLoading = $state(false);
 
+	// Move / Transfer Unit State (Tree Picker)
+	let showMoveModal = $state(false);
+	let itemToMove = $state(null);
+	let moveSubmitting = $state(false);
+	let moveTargetType = $state('unor'); // 'unor' | 'instansi'
+	let moveTargetParentId = $state('');
+	let moveTargetInstansiId = $state('');
+	let moveTreeData = $state([]);
+	let loadingMoveTree = $state(false);
+	let moveExpandedKeys = $state(new Set());
+	let selectedTargetNode = $state(null);
+	let moveSearchKeyword = $state('');
+	let moveError = $state(null);
+
+	// Reorder Modal State
+	let showReorderModal = $state(false);
+	let reorderParent = $state(null);
+	let reorderItems = $state([]);
+	let loadingReorder = $state(false);
+	let reorderSubmitting = $state(false);
+	let reorderError = $state(null);
+
 	// Status Confirmation State
 	let showStatusConfirm = $state(false);
 	let pendingStatus = $state(null);
@@ -72,6 +95,7 @@
 		id: '',
 		kode: '',
 		nmUnor: '',
+		no_urut: '',
 		jab_id: '',
 		nm_jab: '',
 		kategori_jab: 'STRUKTURAL',
@@ -370,7 +394,7 @@
 			|| jenisJabatanOptions.filter(j => j.is_aktif === 1)[0];
 
 		form = {
-			id: '', kode: '', nmUnor: '',
+			id: '', kode: '', nmUnor: '', no_urut: '',
 			jab_id: '', nm_jab: '',
 			kategori_jab: 'PELAKSANA',
 			eselon_id: '',
@@ -530,6 +554,7 @@
 		}
 
 		form.isAktif = (form.isAktif === 1 || form.isAktif === '1' || form.isAktif === true) ? 1 : 0;
+		form.no_urut = form.no_urut !== undefined && form.no_urut !== null ? form.no_urut : (item.no_urut || '');
 
 		if (!form.nm_jab || form.nm_jab === '-' || form.nm_jab.trim() === '') {
 			if (item?.nm_jab && item.nm_jab !== '-') {
@@ -571,6 +596,7 @@
 			const commonPayload = {
 				kode: form.kode || undefined,
 				nmUnor: form.nmUnor,
+				no_urut: form.no_urut !== '' && form.no_urut !== null && form.no_urut !== undefined ? parseInt(form.no_urut, 10) : undefined,
 				nm_jab: form.nm_jab || null,
 				kategori_jab: form.kategori_jab || 'STRUKTURAL',
 				jnsUnor_id: form.jnsUnor_id || null,
@@ -591,7 +617,6 @@
 
 			if (currentLevel === 'induk') {
 				endpoint += '/induk';
-
 				payload = {
 					...commonPayload,
 					instansi_id: form.instansi_id || null,
@@ -639,6 +664,7 @@
 				// In-place update in treeData without resetting tree
 				treeData = updateNodeInTree(treeData, id, {
 					nmUnor: form.nmUnor,
+					no_urut: form.no_urut ? parseInt(form.no_urut, 10) : undefined,
 					nm_jab: form.nm_jab,
 					isAktif: form.isAktif,
 					kategori_jab: form.kategori_jab,
@@ -707,6 +733,253 @@
 		}
 	}
 
+	let predictedNewLevel = $derived.by(() => {
+		if (!selectedTargetNode) return '-';
+		if (selectedTargetNode.level === 'instansi') return 'induk (Unit Organisasi Induk)';
+		if (selectedTargetNode.level === 'induk') return 'unor (Unit Organisasi)';
+		if (selectedTargetNode.level === 'unor') return 'sub (Sub Unit Organisasi)';
+		if (selectedTargetNode.level === 'sub') return 'sub-sub (Sub Unit Organisasi Sub)';
+		return '-';
+	});
+
+	let displayedMoveTreeData = $derived.by(() => {
+		if (!moveSearchKeyword.trim()) return moveTreeData;
+		const kw = moveSearchKeyword.toLowerCase().trim();
+
+		const filterNodes = (items) => {
+			const result = [];
+			for (const item of items) {
+				const name = (item.nmUnor || item.instansi || '').toLowerCase();
+				const matches = name.includes(kw);
+				const childMatches = item.children && item.children.length > 0 ? filterNodes(item.children) : [];
+				if (matches || childMatches.length > 0) {
+					result.push({
+						...item,
+						expanded: true,
+						children: childMatches.length > 0 ? childMatches : item.children
+					});
+				}
+			}
+			return result;
+		};
+
+		return filterNodes(moveTreeData);
+	});
+
+	async function loadMoveTreeData(excludeId) {
+		loadingMoveTree = true;
+		moveTreeData = [];
+		moveExpandedKeys = new Set();
+		try {
+			const kode = selectedInstansiKode || 7209;
+			const res = await api(`/ref-unor/tree?kode=${kode}&exclude_id=${excludeId}`);
+			const roots = res.data || [];
+			
+			if (roots.length > 0) {
+				const root = roots[0];
+				const rootKey = `${root.level}-${root.id}`;
+				moveExpandedKeys.add(rootKey);
+				moveExpandedKeys = new Set(moveExpandedKeys);
+
+				const childRes = await api(`/ref-unor/tree?level=${root.level}&parentId=${root.id}&exclude_id=${excludeId}`);
+				root.children = childRes.data || [];
+				root.hasChildren = (root.children.length > 0);
+				moveTreeData = [root];
+			} else {
+				moveTreeData = roots;
+			}
+		} catch (err) {
+			console.error('Failed to load move tree:', err);
+			toast.error('Gagal memuat pohon unit tujuan');
+		} finally {
+			loadingMoveTree = false;
+		}
+	}
+
+	async function loadMoveChildren(parentId, level) {
+		if (!itemToMove) return;
+		try {
+			const res = await api(`/ref-unor/tree?level=${level}&parentId=${parentId}&exclude_id=${itemToMove.id}`);
+			const newChildren = res.data || [];
+
+			const updateItems = (items) => {
+				return items.map(item => {
+					if (String(item.id) === String(parentId) && item.level === level) {
+						return { ...item, hasChildren: newChildren.length > 0, children: newChildren };
+					}
+					if (item.children && item.children.length > 0) {
+						return { ...item, children: updateItems(item.children) };
+					}
+					return item;
+				});
+			};
+
+			moveTreeData = updateItems(moveTreeData);
+		} catch (err) {
+			console.error('Failed to load branch:', err);
+			toast.error('Gagal memuat cabang');
+		}
+	}
+
+	function handleSelectTargetNode(node) {
+		selectedTargetNode = node;
+		if (node.level === 'instansi') {
+			moveTargetType = 'instansi';
+			moveTargetInstansiId = node.id;
+			moveTargetParentId = '';
+		} else {
+			moveTargetType = 'unor';
+			moveTargetParentId = node.id;
+			moveTargetInstansiId = node.instansi_id || '';
+		}
+	}
+
+	async function handleOpenMove(item) {
+		itemToMove = item;
+		moveTargetType = 'unor';
+		moveTargetParentId = '';
+		moveTargetInstansiId = item.instansi_id || '';
+		selectedTargetNode = null;
+		moveSearchKeyword = '';
+		moveError = null;
+		showMoveModal = true;
+		await loadMoveTreeData(item.id);
+	}
+
+	async function handleExecuteMove() {
+		if (!itemToMove) return;
+
+		if (!selectedTargetNode) {
+			moveError = 'Silakan klik dan pilih salah satu unit/instansi tujuan pada pohon organisasi di atas.';
+			return;
+		}
+
+		moveSubmitting = true;
+		moveError = null;
+
+		try {
+			const payload = {
+				id: itemToMove.id,
+				target_parent_id: selectedTargetNode.level === 'instansi' ? null : selectedTargetNode.id,
+				target_type: selectedTargetNode.level === 'instansi' ? 'instansi' : 'unor',
+				target_instansi_id: selectedTargetNode.level === 'instansi' ? selectedTargetNode.id : (selectedTargetNode.instansi_id || null)
+			};
+
+			await api('/ref-unor/move', {
+				method: 'POST',
+				body: JSON.stringify(payload)
+			});
+
+			toast.success(`Unit "${itemToMove.nmUnor}" berhasil dipindahkan ke bawah "${selectedTargetNode.nmUnor || selectedTargetNode.instansi}".`);
+			showMoveModal = false;
+			itemToMove = null;
+			selectedTargetNode = null;
+
+			// Refresh main tree
+			if (selectedUnorIndukId) {
+				await handleUnorIndukFilter();
+			} else {
+				await loadTree();
+			}
+		} catch (err) {
+			moveError = err.message || 'Gagal memindahkan unit organisasi.';
+			toast.error(moveError);
+		} finally {
+			moveSubmitting = false;
+		}
+	}
+
+	// --- REORDER HANDLERS ---
+
+	async function handleOpenReorder(parent = null) {
+		reorderParent = parent;
+		reorderItems = [];
+		reorderError = null;
+		loadingReorder = true;
+		showReorderModal = true;
+
+		try {
+			let items = [];
+			if (!parent || parent.level === 'instansi') {
+				const res = await api(`/ref-unor/induk?limit=1000&instansi_kode=${parent?.kode || selectedInstansiKode}`);
+				items = res?.data || [];
+			} else if (parent.level === 'induk') {
+				const res = await api(`/ref-unor?parent_id=${parent.id}&limit=1000`);
+				items = res?.data || [];
+			} else if (parent.level === 'unor') {
+				const res = await api(`/ref-unor/sub?unor_id=${parent.id}&limit=1000`);
+				items = res?.data || [];
+			} else if (parent.level === 'sub') {
+				const res = await api(`/ref-unor/sub-sub?subUnor_id=${parent.id}&limit=1000`);
+				items = res?.data || [];
+			}
+
+			reorderItems = items.map((item, idx) => ({
+				...item,
+				no_urut: item.no_urut !== undefined && item.no_urut !== null ? item.no_urut : (idx + 1)
+			})).sort((a, b) => (a.no_urut - b.no_urut) || (a.nmUnor || '').localeCompare(b.nmUnor || ''));
+		} catch (err) {
+			reorderError = err.message || 'Gagal memuat daftar unit organisasi';
+		} finally {
+			loadingReorder = false;
+		}
+	}
+
+	function moveReorderItemUp(index) {
+		if (index <= 0) return;
+		const newArr = [...reorderItems];
+		const temp = newArr[index];
+		newArr[index] = newArr[index - 1];
+		newArr[index - 1] = temp;
+		reorderItems = newArr.map((it, idx) => ({ ...it, no_urut: idx + 1 }));
+	}
+
+	function moveReorderItemDown(index) {
+		if (index >= reorderItems.length - 1) return;
+		const newArr = [...reorderItems];
+		const temp = newArr[index];
+		newArr[index] = newArr[index + 1];
+		newArr[index + 1] = temp;
+		reorderItems = newArr.map((it, idx) => ({ ...it, no_urut: idx + 1 }));
+	}
+
+	async function handleSaveReorder() {
+		if (reorderItems.length === 0) return;
+		reorderSubmitting = true;
+		reorderError = null;
+
+		try {
+			const payload = {
+				items: reorderItems.map((item, idx) => ({
+					id: item.id,
+					no_urut: idx + 1
+				}))
+			};
+
+			await api('/ref-unor/reorder', {
+				method: 'POST',
+				body: JSON.stringify(payload)
+			});
+
+			toast.success('Urutan unit organisasi berhasil diperbarui.');
+			showReorderModal = false;
+
+			// Refresh branch or root tree
+			if (reorderParent && reorderParent.level !== 'instansi') {
+				await loadChildren(reorderParent.id, reorderParent.level);
+			} else if (selectedUnorIndukId) {
+				await handleUnorIndukFilter();
+			} else {
+				await loadTree();
+			}
+		} catch (err) {
+			reorderError = err.message || 'Gagal menyimpan urutan unit organisasi.';
+			toast.error(reorderError);
+		} finally {
+			reorderSubmitting = false;
+		}
+	}
+
 	async function executeDelete() {
 		if (!itemToDelete) return;
 		deleteLoading = true;
@@ -766,33 +1039,47 @@
 				</div>
 			</div>
 
-			<div class="flex gap-2">
-				{#if selectedUnorIndukId || searchKeyword}
+			{#if selectedUnorIndukId || searchKeyword}
+				<div class="flex gap-2">
 					<Button variant="ghost" onclick={clearUnorIndukFilter} title="Reset Filter Unor Induk & Pencarian">
 						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
 						<span>Reset</span>
 					</Button>
-				{/if}
-				<Button variant="secondary" onclick={loadTree} title="Segarkan Data Struktur">
-					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
-					<span>Segarkan</span>
-				</Button>
-			</div>
+				</div>
+			{/if}
 		</div>
 	</div>
 
 	<Card>
-		<div class="mb-4 flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-zinc-100 dark:border-zinc-800 pb-4">
-			<div class="w-6"></div>
-			<div class="flex-1">
-				Struktur Organisasi
-				{#if selectedUnorIndukId}
-					<span class="ml-2 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 font-semibold normal-case">
-						Terfilter Unor Induk
-					</span>
-				{/if}
+		<div class="mb-4 flex items-center justify-between gap-4 text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-zinc-100 dark:border-zinc-800 pb-4">
+			<div class="flex items-center gap-2">
+				<div class="w-6"></div>
+				<div>
+					Struktur Organisasi
+					{#if selectedUnorIndukId}
+						<span class="ml-2 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 font-semibold normal-case">
+							Terfilter Unor Induk
+						</span>
+					{/if}
+				</div>
 			</div>
-			<div class="hidden md:block">Aksi</div>
+			<div class="flex items-center gap-3">
+				<button
+					type="button"
+					onclick={() => handleOpenReorder(selectedUnorIndukId ? { id: selectedUnorIndukId, level: 'induk', nmUnor: 'Unor Induk Terpilih' } : null)}
+					class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold normal-case tracking-normal bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors border border-indigo-200/60 dark:border-indigo-800/60 shadow-sm"
+					title="Atur Urutan Unit Organisasi"
+				>
+					<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="m3 16 4 4 4-4"/>
+						<path d="M7 20V4"/>
+						<path d="m21 8-4-4-4 4"/>
+						<path d="M17 4v16"/>
+					</svg>
+					<span>Atur Urutan</span>
+				</button>
+				<div class="hidden md:block pr-2">Aksi</div>
+			</div>
 		</div>
 
 		{#if loading}
@@ -809,6 +1096,8 @@
 						onEdit={handleEdit} 
 						onDelete={handleDelete} 
 						onAddChild={handleAddChild} 
+						onMove={handleOpenMove}
+						onReorder={handleOpenReorder}
 						{loadChildren}
 						{selectedId}
 						onSelect={(selectedItem) => { selectedId = selectedItem.id; }}
@@ -818,7 +1107,7 @@
 			</div>
 		{/if}
 	</Card>
-	</div>
+</div>
 
 {#if showModal}
 	<div class="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-zinc-950/50 backdrop-blur-sm animate-in fade-in duration-200">
@@ -953,15 +1242,27 @@
 					</div>
 				{/if}
 
-				<div class="space-y-1">
-					<Input
-						label={currentLevel === 'induk' ? 'Nama Unit Organisasi Induk' : (currentLevel === 'sub' ? 'Nama Sub Unit Organisasi' : (currentLevel === 'sub-sub' ? 'Nama Sub Unit Organisasi Sub' : 'Nama Unit Organisasi'))}
-						bind:value={form.nmUnor}
-						placeholder={currentLevel === 'induk' ? 'Nama Lengkap Unit Organisasi Induk' : 'Nama Lengkap Unit Organisasi'}
-						error={fieldErrors.nmUnor}
-						onblur={handleNmUnorBlur}
-						required
-					/>
+				<div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+					<div class="sm:col-span-3">
+						<Input
+							label={currentLevel === 'induk' ? 'Nama Unit Organisasi Induk' : (currentLevel === 'sub' ? 'Nama Sub Unit Organisasi' : (currentLevel === 'sub-sub' ? 'Nama Sub Unit Organisasi Sub' : 'Nama Unit Organisasi'))}
+							bind:value={form.nmUnor}
+							placeholder={currentLevel === 'induk' ? 'Nama Lengkap Unit Organisasi Induk' : 'Nama Lengkap Unit Organisasi'}
+							error={fieldErrors.nmUnor}
+							onblur={handleNmUnorBlur}
+							required
+						/>
+					</div>
+					<div class="sm:col-span-1">
+						<Input
+							label="Nomor Urut"
+							type="number"
+							min="1"
+							bind:value={form.no_urut}
+							placeholder="1, 2, 3..."
+							error={fieldErrors.no_urut}
+						/>
+					</div>
 				</div>
 
 				{#if currentLevel !== 'instansi'}
@@ -1230,3 +1531,295 @@
 		</div>
 	</div>
 {/if}
+
+<!-- Modal Atur Urutan Unit (Reorder Modal) -->
+{#if showReorderModal}
+	<div class="fixed inset-0 z-[75] flex items-center justify-center p-4 sm:p-6 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+		<div class="bg-white dark:bg-zinc-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[90vh]">
+			<!-- Header -->
+			<div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50 gap-4">
+				<div class="flex items-center gap-3">
+					<div class="w-9 h-9 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200/60 dark:border-purple-800/60 flex items-center justify-center">
+						<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="m3 16 4 4 4-4"/>
+							<path d="M7 20V4"/>
+							<path d="m21 8-4-4-4 4"/>
+							<path d="M17 4v16"/>
+						</svg>
+					</div>
+					<div>
+						<h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-50">
+							Atur Urutan Unit Organisasi
+						</h2>
+						<p class="text-xs text-zinc-500 dark:text-zinc-400">
+							{#if reorderParent}
+								Di bawah: <b class="text-zinc-800 dark:text-zinc-200">{reorderParent.nmUnor || reorderParent.instansi}</b>
+							{:else}
+								Tingkat: <b class="text-zinc-800 dark:text-zinc-200">Unit Organisasi Induk (Pemerintah Kab. Tojo Una-Una)</b>
+							{/if}
+						</p>
+					</div>
+				</div>
+
+				<button onclick={() => showReorderModal = false} class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1.5 rounded-xl hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+				</button>
+			</div>
+
+			<!-- Body -->
+			<div class="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+				{#if reorderError}
+					<div class="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400">
+						{reorderError}
+					</div>
+				{/if}
+
+				<div class="p-3 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/60 rounded-2xl flex items-center justify-between gap-2 text-xs">
+					<span class="text-indigo-900 dark:text-indigo-200 font-medium">
+						💡 Gunakan tombol panah <b>Naik (▲)</b> dan <b>Turun (▼)</b> untuk menyusun posisi nomor urut. Nomor urut otomatis berurutan dari 1 sampai akhir.
+					</span>
+				</div>
+
+				{#if loadingReorder}
+					<div class="py-12 flex flex-col items-center justify-center gap-2 text-zinc-400 text-xs">
+						<span class="animate-spin h-6 w-6 border-2 border-purple-500 border-t-transparent rounded-full"></span>
+						<span>Memuat daftar unit...</span>
+					</div>
+				{:else if reorderItems.length === 0}
+					<div class="py-12 text-center text-xs text-zinc-400">
+						Tidak ada unit organisasi pada tingkat ini.
+					</div>
+				{:else}
+					<div class="space-y-2">
+						{#each reorderItems as item, index (item.id)}
+							<div class="flex items-center justify-between gap-3 p-3 bg-zinc-50 dark:bg-zinc-800/50 hover:bg-purple-50/50 dark:hover:bg-purple-950/20 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 transition-all">
+								<!-- Number Badge & Name -->
+								<div class="flex items-center gap-3 min-w-0 flex-1">
+									<div class="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 font-mono font-black text-sm flex items-center justify-center shrink-0 border border-purple-200/60 dark:border-purple-800/60">
+										{index + 1}
+									</div>
+									<div class="min-w-0 flex-1">
+										<span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate">
+											{item.nmUnor || item.instansi}
+										</span>
+										{#if item.nm_jab && item.nm_jab !== '-'}
+											<span class="text-[11px] text-zinc-500 dark:text-zinc-400 block truncate">
+												{item.nm_jab}
+											</span>
+										{/if}
+									</div>
+								</div>
+
+								<!-- Move Buttons -->
+								<div class="flex items-center gap-1 shrink-0">
+									<button
+										type="button"
+										onclick={() => moveReorderItemUp(index)}
+										disabled={index === 0}
+										class="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+										title="Pindahkan Ke Atas"
+									>
+										<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg>
+									</button>
+									<button
+										type="button"
+										onclick={() => moveReorderItemDown(index)}
+										disabled={index === reorderItems.length - 1}
+										class="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+										title="Pindahkan Ke Bawah"
+									>
+										<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+									</button>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+
+			<!-- Footer -->
+			<div class="px-6 py-4 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-3">
+				<Button variant="ghost" onclick={() => showReorderModal = false} disabled={reorderSubmitting}>
+					Batal
+				</Button>
+				<Button 
+					variant="primary" 
+					onclick={handleSaveReorder} 
+					loading={reorderSubmitting}
+					disabled={reorderItems.length === 0}
+				>
+					Simpan Urutan
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Modal Pindahkan Unit Organisasi -->
+{#if showMoveModal && itemToMove}
+	<div class="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+		<div class="bg-white dark:bg-zinc-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[90vh]">
+			<!-- Header -->
+			<div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50 gap-4">
+				<div class="flex items-center gap-3">
+					<div class="w-9 h-9 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/60 flex items-center justify-center">
+						<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M8 3 4 7l4 4"/>
+							<path d="M4 7h16"/>
+							<path d="m16 21 4-4-4-4"/>
+							<path d="M20 17H4"/>
+						</svg>
+					</div>
+					<div>
+						<h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-50">
+							Pindahkan Unit Organisasi
+						</h2>
+						<p class="text-xs text-zinc-500 dark:text-zinc-400">
+							Ubah posisi atau atasan hierarki unit dalam struktur organisasi
+						</p>
+					</div>
+				</div>
+
+				<button onclick={() => { showMoveModal = false; itemToMove = null; }} class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1.5 rounded-xl hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+				</button>
+			</div>
+
+			<!-- Body -->
+			<div class="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
+				{#if moveError}
+					<div class="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400">
+						{moveError}
+					</div>
+				{/if}
+
+				<!-- Info Unit yang Akan Dipindahkan -->
+				<div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl space-y-2">
+					<span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Unit Yang Dipindahkan:</span>
+					<div class="flex items-center justify-between gap-3">
+						<div class="flex items-center gap-2.5 min-w-0">
+							<div class="w-2.5 h-2.5 rounded-full bg-indigo-500 shrink-0"></div>
+							<span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">
+								{itemToMove.nmUnor}
+							</span>
+						</div>
+						<span class="px-2.5 py-1 rounded-lg text-xs font-extrabold uppercase bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 shrink-0">
+							Level Saat Ini: {itemToMove.level}
+						</span>
+					</div>
+					{#if itemToMove.nm_jab && itemToMove.nm_jab !== '-'}
+						<p class="text-xs text-zinc-500 dark:text-zinc-400 pl-5 truncate">
+							Jabatan: {itemToMove.nm_jab}
+						</p>
+					{/if}
+				</div>
+
+				<!-- Target Picker (Interactive Hierarchical Tree View) -->
+				<div class="space-y-2.5">
+					<div class="flex items-center justify-between flex-wrap gap-2">
+						<label for="search-target-tree" class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+							Pilih Atasan / Unit Organisasi Tujuan <span class="text-rose-500">*</span>
+						</label>
+						<span class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-200/60 dark:border-indigo-800/60 flex items-center gap-1.5">
+							<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+							Pemerintah Kab. Tojo Una-Una
+						</span>
+					</div>
+
+					<p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+						Klik nama unit atau instansi pada struktur di bawah untuk memilih atasan baru:
+					</p>
+
+					<!-- Search Bar in Tree Picker -->
+					<div class="relative">
+						<input
+							id="search-target-tree"
+							type="text"
+							placeholder="Cari unit tujuan (misal: Kecamatan Ampana Kota)..."
+							bind:value={moveSearchKeyword}
+							class="w-full pl-9 pr-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+						/>
+						<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+					</div>
+
+					<!-- Scrollable Tree Container -->
+					<div class="max-h-72 overflow-y-auto custom-scrollbar p-2.5 bg-zinc-50/60 dark:bg-zinc-950/50 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-1">
+						{#if loadingMoveTree}
+							<div class="py-8 flex flex-col items-center justify-center gap-2 text-zinc-400 text-xs">
+								<span class="animate-spin h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full"></span>
+								<span>Membangun pohon hierarki tujuan...</span>
+							</div>
+						{:else if displayedMoveTreeData.length === 0}
+							<div class="py-8 text-center text-xs text-zinc-400">
+								Tidak ada unit organisasi yang cocok dengan pencarian.
+							</div>
+						{:else}
+							{#each displayedMoveTreeData as item (item.id)}
+								<UnorTreePickerItem
+									{item}
+									selectedTargetId={selectedTargetNode?.id}
+									onSelectTarget={handleSelectTargetNode}
+									loadChildren={loadMoveChildren}
+									bind:expandedKeys={moveExpandedKeys}
+								/>
+							{/each}
+						{/if}
+					</div>
+
+					{#if selectedTargetNode}
+						<div class="p-3 bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/80 rounded-xl text-xs flex items-center justify-between gap-3">
+							<div class="min-w-0">
+								<span class="font-bold text-indigo-900 dark:text-indigo-200 block truncate">
+									Atasan Tujuan Terpilih: <b>{selectedTargetNode.nmUnor || selectedTargetNode.instansi}</b>
+								</span>
+								<span class="text-[11px] text-indigo-700 dark:text-indigo-400 font-medium">
+									Tingkat: {selectedTargetNode.level.toUpperCase()}
+								</span>
+							</div>
+							<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-600 text-white shrink-0">
+								SIAP PINDAH
+							</span>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Live Preview Perubahan Hierarki -->
+				<div class="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/80 space-y-2">
+					<span class="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+						<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m13 17 5-5-5-5M6 17l5-5-5-5"/></svg>
+						Ringkasan Perubahan:
+					</span>
+					<div class="text-xs text-zinc-700 dark:text-zinc-300 space-y-1">
+						<p>
+							• Unit <b>{itemToMove.nmUnor}</b> akan dipindahkan ke bawah: 
+							<b class="text-indigo-600 dark:text-indigo-400">
+								{selectedTargetNode ? (selectedTargetNode.nmUnor || selectedTargetNode.instansi) : '(Klik salah satu unit pada pohon di atas)'}
+							</b>
+						</p>
+						<p>
+							• Tingkat level akan disesuaikan menjadi: 
+							<span class="font-bold text-emerald-600 dark:text-emerald-400">{predictedNewLevel}</span>
+						</p>
+					</div>
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="px-6 py-4 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-3">
+				<Button variant="ghost" onclick={() => { showMoveModal = false; itemToMove = null; }} disabled={moveSubmitting}>
+					Batal
+				</Button>
+				<Button 
+					variant="primary" 
+					onclick={handleExecuteMove} 
+					loading={moveSubmitting}
+					disabled={!selectedTargetNode}
+				>
+					Konfirmasi Pindahkan Unit
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+

@@ -6,6 +6,8 @@
     onEdit, 
     onDelete, 
     onAddChild, 
+    onMove,
+    onReorder = null,
     loadChildren, 
     selectedId = null, 
     onSelect = null, 
@@ -135,7 +137,36 @@
         </button>
       {/if}
       
+      {#if item.level !== 'sub-sub' && onReorder}
+        <button 
+          class="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-zinc-800 rounded-lg transition-all"
+          onclick={(e) => { e.stopPropagation(); onReorder(item); }}
+          title="Atur Urutan Unit di Bawah Ini"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m3 16 4 4 4-4"/>
+            <path d="M7 20V4"/>
+            <path d="m21 8-4-4-4 4"/>
+            <path d="M17 4v16"/>
+          </svg>
+        </button>
+      {/if}
+      
       {#if item.level !== 'instansi'}
+        {#if onMove}
+          <button 
+            class="p-1.5 text-zinc-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-zinc-800 rounded-lg transition-all"
+            onclick={(e) => { e.stopPropagation(); onMove(item); }}
+            title="Pindahkan Unit Organisasi"
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3 4 7l4 4"/>
+              <path d="M4 7h16"/>
+              <path d="m16 21 4-4-4-4"/>
+              <path d="M20 17H4"/>
+            </svg>
+          </button>
+        {/if}
         <button 
           class="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-zinc-800 rounded-lg transition-all"
           onclick={(e) => { e.stopPropagation(); onEdit(item); }}
@@ -163,6 +194,8 @@
           {onEdit} 
           {onDelete} 
           {onAddChild} 
+          {onMove}
+          {onReorder}
           {loadChildren}
           {selectedId}
           {onSelect}
