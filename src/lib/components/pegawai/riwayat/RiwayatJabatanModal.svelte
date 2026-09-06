@@ -75,7 +75,7 @@
 		refJenisJabatan.find(j => String(j.id) === String(jnsJab_id))
 	);
 
-	let isStrukturalManajerial = $derived.by(() => {
+	let jenjangText = $derived.by(() => {
 		let text = '';
 		if (selectedJenjangObj) {
 			text += (selectedJenjangObj.jenjangjab || '').toUpperCase() + ' ';
@@ -83,18 +83,42 @@
 		if (selectedJenisJabatanObj) {
 			text += (selectedJenisJabatanObj.jnsjab || '').toUpperCase();
 		}
-		if (!text.trim()) return true; // Default ke true (auto-fill dari ref_jabatan) jika belum pilih jenjang
-		return (
-			text.includes('ADMINISTRATOR') ||
-			text.includes('PENGAWAS') ||
-			text.includes('PIMPINAN TINGGI') ||
-			text.includes('JPT') ||
-			text.includes('STRUKTURAL') ||
-			text.includes('ADMINISTRASI')
-		);
+		return text.trim();
 	});
 
-	let isFungsional = $derived(!isStrukturalManajerial);
+	let isPelaksana = $derived(jenjangText.includes('PELAKSANA'));
+	let isFungsional = $derived(
+		jenjangText.includes('FUNGSIONAL') || 
+		jenjangText.includes('JF') || 
+		jenjangText.includes('KEAHLIAN') || 
+		jenjangText.includes('KETRAMPILAN')
+	);
+	let isStrukturalManajerial = $derived(
+		!isPelaksana && !isFungsional && (
+			!jenjangText ||
+			jenjangText.includes('ADMINISTRATOR') ||
+			jenjangText.includes('PENGAWAS') ||
+			jenjangText.includes('PIMPINAN TINGGI') ||
+			jenjangText.includes('JPT') ||
+			jenjangText.includes('STRUKTURAL')
+		)
+	);
+
+	let nonStrukturalOptions = $derived.by(() => {
+		if (isPelaksana) {
+			return refDaftarJabatan
+				.filter(j => j.tipe === 'PELAKSANA')
+				.map(j => ({ value: j.id, label: j.nama, tipe: j.tipe }));
+		}
+		if (isFungsional) {
+			return refDaftarJabatan
+				.filter(j => j.tipe === 'FUNGSIONAL')
+				.map(j => ({ value: j.id, label: j.nama, tipe: j.tipe }));
+		}
+		return refDaftarJabatan
+			.filter(j => j.tipe === 'FUNGSIONAL' || j.tipe === 'PELAKSANA')
+			.map(j => ({ value: j.id, label: j.nama, tipe: j.tipe }));
+	});
 
 	let fungsionalOptions = $derived(
 		refDaftarJabatan
@@ -516,9 +540,9 @@
 
 				<!-- Section 4: Nama Jabatan -->
 				<div class="space-y-1.5">
-					{#if isFungsional}
+					{#if isPelaksana || isFungsional}
 						<Combobox 
-							options={fungsionalOptions}
+							options={nonStrukturalOptions}
 							value={nmJab_id}
 							onchange={(selectedId, opt) => {
 								nmJab_id = selectedId || '';
@@ -528,8 +552,8 @@
 									nama_jabatan = '';
 								}
 							}}
-							label="Nama Jabatan (Jabatan Fungsional)"
-							placeholder="Pilih atau cari Jabatan Fungsional..."
+							label={isPelaksana ? "Nama Jabatan (Jabatan Pelaksana)" : "Nama Jabatan (Jabatan Fungsional)"}
+							placeholder={isPelaksana ? "Pilih atau cari Jabatan Pelaksana..." : "Pilih atau cari Jabatan Fungsional..."}
 							disabled={loading || loadingRef}
 							required={true}
 						/>
@@ -540,7 +564,7 @@
 							</label>
 							<span class="inline-flex items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500 font-medium">
 								<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-								Terkunci otomatis
+								Terkunci otomatis dari Unit Organisasi
 							</span>
 						</div>
 						<textarea 

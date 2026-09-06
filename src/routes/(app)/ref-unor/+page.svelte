@@ -76,19 +76,47 @@
 	// Status Confirmation State
 	let showStatusConfirm = $state(false);
 	let pendingStatus = $state(null);
+	let checkingActivePegawai = $state(false);
+	let activePegawaiWarning = $state(null);
 
-	function triggerStatusConfirm() {
+	async function triggerStatusConfirm() {
 		pendingStatus = form.isAktif === 1 ? 0 : 1;
+		activePegawaiWarning = null;
+
+		// Jika ingin menonaktifkan dan unit sudah tersimpan (memiliki ID)
+		if (pendingStatus === 0 && form.id) {
+			checkingActivePegawai = true;
+			try {
+				const res = await api(`/ref-unor/check-active-pegawai/${form.id}`);
+				if (res?.data?.count > 0) {
+					activePegawaiWarning = res.data;
+				}
+			} catch (err) {
+				console.error('Gagal mengecek pegawai aktif:', err);
+			} finally {
+				checkingActivePegawai = false;
+			}
+		}
+
 		showStatusConfirm = true;
 	}
 
 	function confirmStatusChange() {
+		if (pendingStatus === 0 && activePegawaiWarning && activePegawaiWarning.count > 0) {
+			toast.error(`Tidak dapat menonaktifkan unit karena masih terdapat ${activePegawaiWarning.count} pegawai aktif.`);
+			showStatusConfirm = false;
+			pendingStatus = null;
+			activePegawaiWarning = null;
+			return;
+		}
+
 		if (pendingStatus !== null) {
 			form.isAktif = pendingStatus;
 			toast.info(`Status unit diset menjadi ${pendingStatus === 1 ? 'AKTIF' : 'NON AKTIF'}. Klik Simpan untuk memperbarui.`);
 		}
 		showStatusConfirm = false;
 		pendingStatus = null;
+		activePegawaiWarning = null;
 	}
 
 	let form = $state({
@@ -1131,11 +1159,18 @@
 							role="switch"
 							aria-checked={form.isAktif === 1}
 							onclick={triggerStatusConfirm}
-							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {form.isAktif === 1 ? 'bg-emerald-500' : 'bg-rose-400'}"
+							disabled={checkingActivePegawai}
+							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-60 {form.isAktif === 1 ? 'bg-emerald-500' : 'bg-rose-400'}"
 						>
-							<span
-								class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out {form.isAktif === 1 ? 'translate-x-4' : 'translate-x-0'}"
-							></span>
+							{#if checkingActivePegawai}
+								<span class="absolute inset-0 flex items-center justify-center">
+									<span class="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></span>
+								</span>
+							{:else}
+								<span
+									class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out {form.isAktif === 1 ? 'translate-x-4' : 'translate-x-0'}"
+								></span>
+							{/if}
 						</button>
 						<span class="text-xs font-black tracking-wider uppercase {form.isAktif === 1 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}">
 							{form.isAktif === 1 ? 'Aktif' : 'Non Aktif'}
@@ -1497,7 +1532,7 @@
 {#if showStatusConfirm}
 	<div class="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-150">
 		<div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md p-6 space-y-4 text-center">
-			<div class="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center {pendingStatus === 1 ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'}">
+			<div class="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center {pendingStatus === 1 ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' : (activePegawaiWarning && activePegawaiWarning.count > 0 ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400' : 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400')}">
 				{#if pendingStatus === 1}
 					<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -1510,23 +1545,52 @@
 			</div>
 
 			<h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-				Konfirmasi Perubahan Status
+				{#if activePegawaiWarning && activePegawaiWarning.count > 0}
+					Peringatan Pegawai Aktif Terdaftar
+				{:else}
+					Konfirmasi Perubahan Status
+				{/if}
 			</h3>
 
-			<p class="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-				Apakah Anda yakin ingin mengalihkan status unit organisasi ini menjadi 
-				<b class={pendingStatus === 1 ? 'text-emerald-600 dark:text-emerald-400 font-black' : 'text-rose-600 dark:text-rose-400 font-black'}>
-					{pendingStatus === 1 ? 'AKTIF' : 'NON AKTIF'}
-				</b>?
-			</p>
+			{#if activePegawaiWarning && activePegawaiWarning.count > 0}
+				<div class="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl text-left space-y-2">
+					<p class="text-xs text-amber-800 dark:text-amber-200 font-semibold leading-relaxed">
+						Unit organisasi ini tidak dapat dinonaktifkan karena masih terdapat <span class="font-black text-rose-600 dark:text-rose-400 underline">{activePegawaiWarning.count} Pegawai Aktif</span> yang bertugas di unit ini (atau sub-unitnya):
+					</p>
+					<ul class="text-[11px] text-zinc-700 dark:text-zinc-300 list-disc list-inside space-y-0.5 bg-white/70 dark:bg-zinc-900/70 p-2.5 rounded-xl border border-amber-200/50 dark:border-amber-800/40 max-h-36 overflow-y-auto">
+						{#each activePegawaiWarning.pegawai as p}
+							<li class="truncate"><span class="font-bold">{p.nama}</span> ({p.nip})</li>
+						{/each}
+						{#if activePegawaiWarning.count > activePegawaiWarning.pegawai.length}
+							<li class="italic text-zinc-500">... dan {activePegawaiWarning.count - activePegawaiWarning.pegawai.length} pegawai lainnya</li>
+						{/if}
+					</ul>
+					<p class="text-[11px] text-amber-700 dark:text-amber-300 font-medium">
+						Silakan lakukan mutasi / pemindahan jabatan pegawai yang bersangkutan terlebih dahulu sebelum menonaktifkan unit ini.
+					</p>
+				</div>
+			{:else}
+				<p class="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+					Apakah Anda yakin ingin mengalihkan status unit organisasi ini menjadi 
+					<b class={pendingStatus === 1 ? 'text-emerald-600 dark:text-emerald-400 font-black' : 'text-rose-600 dark:text-rose-400 font-black'}>
+						{pendingStatus === 1 ? 'AKTIF' : 'NON AKTIF'}
+					</b>?
+				</p>
+			{/if}
 
 			<div class="pt-2 flex items-center justify-center gap-3">
-				<Button variant="secondary" onclick={() => { showStatusConfirm = false; pendingStatus = null; }}>
-					Batal
-				</Button>
-				<Button variant={pendingStatus === 1 ? 'primary' : 'danger'} onclick={confirmStatusChange}>
-					Ya, Ubah Status
-				</Button>
+				{#if activePegawaiWarning && activePegawaiWarning.count > 0}
+					<Button variant="primary" onclick={() => { showStatusConfirm = false; pendingStatus = null; activePegawaiWarning = null; }}>
+						Mengerti
+					</Button>
+				{:else}
+					<Button variant="secondary" onclick={() => { showStatusConfirm = false; pendingStatus = null; activePegawaiWarning = null; }}>
+						Batal
+					</Button>
+					<Button variant={pendingStatus === 1 ? 'primary' : 'danger'} onclick={confirmStatusChange}>
+						Ya, Ubah Status
+					</Button>
+				{/if}
 			</div>
 		</div>
 	</div>
