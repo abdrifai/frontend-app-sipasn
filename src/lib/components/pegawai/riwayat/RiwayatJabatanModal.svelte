@@ -52,8 +52,13 @@
 		refUnorInduk
 			.filter(u => u.isAktif !== 0 || u.id === unorInduk_id)
 			.map(u => ({
+				id: u.id,
 				value: u.id,
+				nmUnor: (u.nmUnor || '').trim(),
 				label: (u.nmUnor || '').trim() + (u.isAktif === 0 ? ' (Non-Aktif)' : ''),
+				parent_id: u.parent_id,
+				level: u.level,
+				kode: u.kode,
 				nm_jab: u.nm_jab,
 				jab_id: u.resolved_jab_id || u.jab_id,
 				jns_jab_id: u.jns_jab_id,
