@@ -13,7 +13,7 @@
 	let inputVal = $state('');
 	
 	function handleConfirm() {
-		if (inputVal === verifyText && onConfirm) {
+		if ((!verifyText || inputVal === verifyText) && onConfirm) {
 			onConfirm();
 		}
 	}
@@ -53,27 +53,29 @@
 				</div>
 
 				<h3 class="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-2">{title}</h3>
-				<p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed mb-6">{message}</p>
+				<p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed {verifyText ? 'mb-6' : 'mb-8'}">{message}</p>
 				
-				<!-- Verification Input -->
-				<div class="w-full space-y-2 mb-8 text-left">
-					<label for="verify" class="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Ketik "{verifyText}" untuk konfirmasi</label>
-					<input 
-						id="verify"
-						type="text" 
-						bind:value={inputVal}
-						placeholder='Ketik "{verifyText}"'
-						class="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 transition-all font-bold text-rose-600 dark:text-rose-400 text-center"
-						disabled={loading}
-					/>
-				</div>
+				{#if verifyText}
+					<!-- Verification Input -->
+					<div class="w-full space-y-2 mb-8 text-left">
+						<label for="verify" class="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Ketik "{verifyText}" untuk konfirmasi</label>
+						<input 
+							id="verify"
+							type="text" 
+							bind:value={inputVal}
+							placeholder='Ketik "{verifyText}"'
+							class="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 transition-all font-bold text-rose-600 dark:text-rose-400 text-center"
+							disabled={loading}
+						/>
+					</div>
+				{/if}
 
 				<!-- Actions -->
 				<div class="flex flex-col w-full gap-3">
 					<Button 
 						variant="danger" 
 						onclick={handleConfirm}
-						disabled={loading || inputVal !== verifyText}
+						disabled={loading || (verifyText ? inputVal !== verifyText : false)}
 						loading={loading}
 						class="w-full py-4 rounded-2xl font-black tracking-tight"
 					>
