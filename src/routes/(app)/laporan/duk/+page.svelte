@@ -105,8 +105,8 @@
 		<div class="flex flex-col md:flex-row items-end gap-4">
 			<div class="flex-1 w-full">
 				<Combobox 
-					label="Pilih Unit Kerja (OPD Induk Kab. Tojo Una-Una)"
-					placeholder={loadingOptions ? "Memuat daftar 90 OPD aktif..." : "Pilih atau cari nama OPD / Unit Kerja..."}
+					label="Pilih Unit Kerja (OPD / Unit Organisasi)"
+					placeholder={loadingOptions ? "Memuat daftar unit kerja..." : "Pilih atau cari nama Unit Kerja / OPD..."}
 					options={unorOptions}
 					bind:value={selectedUnorId}
 					disabled={loadingOptions}
