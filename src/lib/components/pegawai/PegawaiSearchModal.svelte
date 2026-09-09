@@ -279,12 +279,14 @@
 											<Badge variant="indigo">{p.golongan}</Badge>
 										</div>
 
-										<p class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">
+										<p class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 leading-snug break-words">
 											{p.jabatan}
 										</p>
-										<p class="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
-											{p.unit_kerja}
-										</p>
+										{#if p.unit_kerja}
+											<p class="text-[11px] text-zinc-400 dark:text-zinc-500 leading-snug break-words mt-0.5">
+												{p.unit_kerja}
+											</p>
+										{/if}
 									</div>
 								</div>
 

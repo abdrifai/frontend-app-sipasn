@@ -642,7 +642,7 @@
 		role="dialog"
 		aria-modal="true"
 	>
-		<div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+		<div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-6xl xl:max-w-7xl h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
 			<!-- Header -->
 			<div class="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/70 dark:bg-zinc-950/70 shrink-0">
 				<div class="min-w-0 flex-1 pr-3">
