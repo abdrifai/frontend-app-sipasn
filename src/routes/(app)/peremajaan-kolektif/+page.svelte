@@ -45,7 +45,7 @@
 		tgl_sk: '',
 		tmt_sk: '',
 		jns_mutasi_id: '',
-		pengesahan: 'BUPATI BOLAANG MONGONDOW UTARA',
+		pengesahan: 'BUPATI TOJO UNA-UNA',
 		keterangan: ''
 	});
 	let selectedFileSK = $state(null);
@@ -109,7 +109,7 @@
 			tgl_sk: new Date().toISOString().split('T')[0],
 			tmt_sk: new Date().toISOString().split('T')[0],
 			jns_mutasi_id: jnsMutasiOptions[0]?.id || '',
-			pengesahan: 'BUPATI BOLAANG MONGONDOW UTARA',
+			pengesahan: 'BUPATI TOJO UNA-UNA',
 			keterangan: ''
 		};
 		selectedFileSK = null;
@@ -598,7 +598,7 @@
 						id="pengesahan"
 						type="text"
 						bind:value={form.pengesahan}
-						placeholder="Contoh: BUPATI BOLAANG MONGONDOW UTARA"
+						placeholder="Contoh: BUPATI TOJO UNA-UNA"
 						class="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-zinc-900 dark:text-zinc-100"
 					/>
 				</div>

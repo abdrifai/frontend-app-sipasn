@@ -119,69 +119,15 @@
 		}))
 	);
 
-	let selectedJenjangObj = $derived(
-		refJenjangJabatan.find((j) => String(j.id) === String(formPegawai.jns_jab_id))
-	);
 
-	let selectedJenisJabatanObj = $derived(
-		refJenisJabatan.find((j) => String(j.id) === String(formPegawai.jns_jab_id))
-	);
 
-	let jenjangText = $derived.by(() => {
-		let text = '';
-		if (selectedJenjangObj) {
-			text += (selectedJenjangObj.jenjangjab || '') + ' ' + (selectedJenjangObj.jnsjab || '') + ' ';
-		}
-		if (selectedJenisJabatanObj) {
-			text += (selectedJenisJabatanObj.jnsjab || '') + ' ';
-		}
-		return text.toUpperCase().trim();
-	});
+	// Pilihan Kategori / Jenis Jabatan: 'STRUKTURAL' | 'FUNGSIONAL' | 'PELAKSANA'
+	let kategoriJabatan = $state('STRUKTURAL');
 
-	let isPelaksana = $derived(
-		jenjangText.includes('PELAKSANA') || 
-		jenjangText.includes('FUNGSIONAL UMUM') || 
-		jenjangText.includes('JFU')
-	);
-	let isFungsional = $derived(
-		jenjangText.includes('FUNGSIONAL') ||
-		jenjangText.includes('JF') ||
-		jenjangText.includes('KEAHLIAN') ||
-		jenjangText.includes('KETRAMPILAN') ||
-		jenjangText.includes('TERTENTU')
-	);
-	let isStruktural = $derived(
-		jenjangText.includes('STRUKTURAL') ||
-		jenjangText.includes('PIMPINAN') ||
-		jenjangText.includes('ADMINISTRATOR') ||
-		jenjangText.includes('PENGAWAS') ||
-		(!isPelaksana && !isFungsional && Boolean(formPegawai.jns_jab_id))
-	);
-
-	let filteredJabatanOptions = $derived.by(() => {
-		let list = refDaftarJabatan;
-
-		if (isPelaksana) {
-			const filtered = refDaftarJabatan.filter(
-				(j) => (j.tipe || j.kategori || '').toUpperCase() === 'PELAKSANA'
-			);
-			if (filtered.length > 0) list = filtered;
-		} else if (isFungsional) {
-			const filtered = refDaftarJabatan.filter(
-				(j) => (j.tipe || j.kategori || '').toUpperCase() === 'FUNGSIONAL'
-			);
-			if (filtered.length > 0) list = filtered;
-		} else if (isStruktural) {
-			const filtered = refDaftarJabatan.filter(
-				(j) => (j.tipe || j.kategori || '').toUpperCase() === 'STRUKTURAL'
-			);
-			if (filtered.length > 0) list = filtered;
-		}
-
-		// Deduplikasi berdasarkan id atau nama jabatan
+	let allJabatanOptions = $derived.by(() => {
 		const seen = new Set();
 		const uniqueList = [];
-		for (const j of list) {
+		for (const j of refDaftarJabatan) {
 			const key = j.id ? String(j.id) : (j.nama || j.nama_jabatan || '').toLowerCase();
 			if (!seen.has(key)) {
 				seen.add(key);
@@ -193,52 +139,43 @@
 			id: j.id,
 			value: j.id,
 			label: j.nama || j.nama_jabatan || j.nm_jab || j.nmJab || '-',
-			tipe: j.tipe || j.kategori || '',
+			tipe: j.tipe || j.kategori || 'STRUKTURAL',
 			eselon_id: j.eselon_id || null,
 			jns_jab_id: j.jns_jab_id || null,
+			jenjang_jab_id: j.jenjang_jab_id || null,
 		}));
 	});
 
-	let eselonOptions = $derived.by(() => {
-		if (isFungsional || isPelaksana) {
-			const nonEselon = refEselon.filter((e) => (e.eselon || '').toUpperCase().includes('NON'));
-			if (nonEselon.length > 0) return nonEselon;
+	let filteredJabatanOptions = $derived.by(() => {
+		if (kategoriJabatan === 'STRUKTURAL') {
+			return allJabatanOptions.filter((j) => j.tipe === 'STRUKTURAL');
+		} else if (kategoriJabatan === 'FUNGSIONAL') {
+			return allJabatanOptions.filter((j) => j.tipe === 'FUNGSIONAL');
+		} else if (kategoriJabatan === 'PELAKSANA') {
+			return allJabatanOptions.filter((j) => j.tipe === 'PELAKSANA');
 		}
-		const validEselonIds = refJenjangEselonMap[String(formPegawai.jns_jab_id)];
-		if (validEselonIds && validEselonIds.length > 0) {
-			const filtered = refEselon.filter((e) => validEselonIds.includes(e.id));
-			if (filtered.length > 0) return filtered;
-		}
-		return refEselon;
+		return allJabatanOptions;
 	});
 
-	function handleJenisJabatanChange(e) {
-		const newJnsJabId = e.target.value;
-		formPegawai.jns_jab_id = newJnsJabId;
-		formPegawai.nm_jab_id = ''; // Reset pilihan nama jabatan saat jenis jabatan berubah
 
-		const nonEselon = refEselon.find((es) => (es.eselon || '').toUpperCase().includes('NON'));
 
-		if (isFungsional || isPelaksana) {
-			formPegawai.eselon_id = nonEselon ? nonEselon.id : '';
-		} else {
-			const validEselonIds = refJenjangEselonMap[String(newJnsJabId)];
-			if (validEselonIds && validEselonIds.length > 0) {
-				if (!formPegawai.eselon_id || !validEselonIds.includes(formPegawai.eselon_id)) {
-					formPegawai.eselon_id = validEselonIds[0];
-				}
-			}
-		}
+	function handleJabatanChange(jabId) {
+		formPegawai.nm_jab_id = jabId || '';
 	}
 
-	function handleJabatanChange(jabId, opt) {
-		formPegawai.nm_jab_id = jabId || '';
-		if (opt) {
-			if (opt.tipe === 'FUNGSIONAL' || opt.tipe === 'PELAKSANA') {
-				const nonEselon = refEselon.find((es) => (es.eselon || '').toUpperCase().includes('NON'));
-				formPegawai.eselon_id = nonEselon ? nonEselon.id : '';
-			} else if (opt.eselon_id) {
-				formPegawai.eselon_id = opt.eselon_id;
+	function selectKategoriJabatan(kategori) {
+		kategoriJabatan = kategori;
+		if (kategori === 'STRUKTURAL') {
+			const selectedUnor = unorOptions.find((u) => u.id === formPegawai.unor_id);
+			if (selectedUnor?.jab_id) {
+				formPegawai.nm_jab_id = selectedUnor.jab_id;
+			} else {
+				formPegawai.nm_jab_id = '';
+			}
+		} else {
+			const currentJab = allJabatanOptions.find((j) => j.id === formPegawai.nm_jab_id);
+			if (!currentJab || currentJab.tipe !== kategori) {
+				formPegawai.nm_jab_id = '';
 			}
 		}
 	}
@@ -256,17 +193,15 @@
 
 	function openAddPegawaiModal() {
 		selectedPegawai = null;
+		kategoriJabatan = 'STRUKTURAL';
 		formPegawai = {
 			pegawai_id: '',
 			nip: '',
 			nama: '',
 			jabatan_saat_ini: '',
 			unit_kerja_saat_ini: '',
-			jns_jab_id: refJenjangJabatan[0]?.id || refJenisJabatan[0]?.id || '',
 			unor_id: '',
 			nm_jab_id: '',
-			nama_jabatan: '',
-			eselon_id: '',
 			keterangan: ''
 		};
 		formPegawaiErrors = {};
@@ -276,17 +211,11 @@
 	function handleUnorChange(unorId) {
 		formPegawai.unor_id = unorId;
 		const selectedUnor = unorOptions.find((u) => u.id === unorId);
-		if (selectedUnor) {
-			if (selectedUnor.jab_id && !formPegawai.nm_jab_id && !isFungsional && !isPelaksana) {
+		if (kategoriJabatan === 'STRUKTURAL') {
+			if (selectedUnor?.jab_id) {
 				formPegawai.nm_jab_id = selectedUnor.jab_id;
-			}
-			if (selectedUnor.eselon_id && !isFungsional && !isPelaksana) {
-				formPegawai.eselon_id = selectedUnor.eselon_id;
-			}
-			if (selectedUnor.jenjang_jab_id) {
-				formPegawai.jns_jab_id = selectedUnor.jenjang_jab_id;
-			} else if (selectedUnor.jns_jab_id) {
-				formPegawai.jns_jab_id = selectedUnor.jns_jab_id;
+			} else {
+				formPegawai.nm_jab_id = '';
 			}
 		}
 	}
@@ -303,8 +232,8 @@
 			formPegawaiErrors.unor_id = 'Pilih Unit Organisasi (OPD) tujuan';
 			return;
 		}
-		if (!formPegawai.jns_jab_id) {
-			formPegawaiErrors.jns_jab_id = 'Pilih jenis jabatan';
+		if (!formPegawai.nm_jab_id) {
+			formPegawaiErrors.nm_jab_id = 'Pilih nama jabatan baru';
 			return;
 		}
 
@@ -316,10 +245,8 @@
 					pegawai_id: formPegawai.pegawai_id,
 					nip: formPegawai.nip,
 					nama: formPegawai.nama,
-					jns_jab_id: formPegawai.jns_jab_id ? String(formPegawai.jns_jab_id) : null,
 					unor_id: formPegawai.unor_id,
-					nm_jab_id: formPegawai.nm_jab_id || null,
-					eselon_id: formPegawai.eselon_id || null,
+					nm_jab_id: formPegawai.nm_jab_id,
 					keterangan: formPegawai.keterangan || null,
 				}),
 			});
@@ -734,56 +661,72 @@
 					{/if}
 				</div>
 
-				<!-- Jenis Jabatan Selection (Pelaksana / Fungsional / Struktural) -->
-				<div class="space-y-1">
-					<label for="pegawai_jns_jab" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-						Jenis Jabatan Baru <span class="text-rose-500">*</span>
-					</label>
-					<select
-						id="pegawai_jns_jab"
-						value={formPegawai.jns_jab_id}
-						onchange={handleJenisJabatanChange}
-						class="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-950 border {formPegawaiErrors.jns_jab_id ? 'border-rose-500' : 'border-zinc-200 dark:border-zinc-800'} rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-zinc-900 dark:text-zinc-100"
-					>
-						<option value="">Pilih Jenis Jabatan</option>
-						{#each refJenjangJabatan.length > 0 ? refJenjangJabatan : refJenisJabatan as jab}
-							<option value={jab.id}>{jab.jenjangjab || jab.jnsjab}</option>
-						{/each}
-					</select>
-					{#if formPegawaiErrors.jns_jab_id}
-						<p class="text-2xs text-rose-500">{formPegawaiErrors.jns_jab_id}</p>
-					{/if}
+				<!-- Jenis / Kategori Jabatan Segmented Switch -->
+				<div class="space-y-1.5">
+					<div class="flex items-center justify-between">
+						<label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+							Jenis Jabatan Baru <span class="text-rose-500">*</span>
+						</label>
+						<span class="text-[11px] text-zinc-400">
+							{#if kategoriJabatan === 'STRUKTURAL'}
+								(Default dari Pimpinan OPD)
+							{:else if kategoriJabatan === 'FUNGSIONAL'}
+								(Jabatan Fungsional Tertentu / Keahlian)
+							{:else}
+								(Jabatan Pelaksana / Staf)
+							{/if}
+						</span>
+					</div>
+					<div class="grid grid-cols-3 gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80">
+						<button
+							type="button"
+							onclick={() => selectKategoriJabatan('STRUKTURAL')}
+							class="px-3 py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer {kategoriJabatan === 'STRUKTURAL' ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-zinc-200/60 dark:border-zinc-700/60' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'}"
+						>
+							<span class="w-2 h-2 rounded-full {kategoriJabatan === 'STRUKTURAL' ? 'bg-indigo-600 dark:bg-indigo-400 ring-2 ring-indigo-500/20' : 'bg-zinc-300 dark:bg-zinc-600'}"></span>
+							Struktural
+						</button>
+						<button
+							type="button"
+							onclick={() => selectKategoriJabatan('FUNGSIONAL')}
+							class="px-3 py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer {kategoriJabatan === 'FUNGSIONAL' ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-zinc-200/60 dark:border-zinc-700/60' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'}"
+						>
+							<span class="w-2 h-2 rounded-full {kategoriJabatan === 'FUNGSIONAL' ? 'bg-indigo-600 dark:bg-indigo-400 ring-2 ring-indigo-500/20' : 'bg-zinc-300 dark:bg-zinc-600'}"></span>
+							Fungsional
+						</button>
+						<button
+							type="button"
+							onclick={() => selectKategoriJabatan('PELAKSANA')}
+							class="px-3 py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer {kategoriJabatan === 'PELAKSANA' ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-zinc-200/60 dark:border-zinc-700/60' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'}"
+						>
+							<span class="w-2 h-2 rounded-full {kategoriJabatan === 'PELAKSANA' ? 'bg-indigo-600 dark:bg-indigo-400 ring-2 ring-indigo-500/20' : 'bg-zinc-300 dark:bg-zinc-600'}"></span>
+							Pelaksana
+						</button>
+					</div>
 				</div>
 
 				<!-- Nama Jabatan Selection -->
 				<div class="space-y-1">
-					<label for="pegawai_jabatan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-						Nama Jabatan Baru
-					</label>
+					<div class="flex items-center justify-between">
+						<label for="pegawai_jabatan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+							Nama Jabatan Baru <span class="text-rose-500">*</span>
+						</label>
+						{#if kategoriJabatan === 'STRUKTURAL' && formPegawai.unor_id}
+							<span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+								<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+								Otomatis dari OPD
+							</span>
+						{/if}
+					</div>
 					<Combobox
 						options={filteredJabatanOptions}
 						bind:value={formPegawai.nm_jab_id}
 						onchange={handleJabatanChange}
-						placeholder="Cari atau pilih nama jabatan..."
+						placeholder={kategoriJabatan === 'STRUKTURAL' ? 'Pilih jabatan struktural...' : kategoriJabatan === 'FUNGSIONAL' ? 'Cari atau pilih jabatan fungsional...' : 'Cari atau pilih jabatan pelaksana...'}
 					/>
-				</div>
-
-				<!-- Eselon Selection (Jika Struktural / Memiliki Eselon) -->
-				<div class="space-y-1">
-					<label for="pegawai_eselon" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-						Eselon {isFungsional || isPelaksana ? '(Non-Eselon)' : '(Opsional)'}
-					</label>
-					<select
-						id="pegawai_eselon"
-						bind:value={formPegawai.eselon_id}
-						disabled={isFungsional || isPelaksana}
-						class="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-zinc-900 dark:text-zinc-100 disabled:opacity-60 disabled:bg-zinc-100 dark:disabled:bg-zinc-900/60"
-					>
-						<option value="">Non-Eselon / Tanpa Eselon</option>
-						{#each eselonOptions as eselon}
-							<option value={eselon.id}>{eselon.eselon}</option>
-						{/each}
-					</select>
+					{#if formPegawaiErrors.nm_jab_id}
+						<p class="text-2xs text-rose-500">{formPegawaiErrors.nm_jab_id}</p>
+					{/if}
 				</div>
 
 				<!-- Keterangan Tambahan -->
