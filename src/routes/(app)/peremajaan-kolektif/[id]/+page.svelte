@@ -13,6 +13,7 @@
 	import EmptyState from '$lib/components/feedback/EmptyState.svelte';
 	import ConfirmDeleteModal from '$lib/components/feedback/ConfirmDeleteModal.svelte';
 	import PegawaiSearchModal from '$lib/components/pegawai/PegawaiSearchModal.svelte';
+	import MutasiMasalModal from '$lib/components/peremajaan-kolektif/MutasiMasalModal.svelte';
 
 	const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : '';
 	const skId = $page.params.id;
@@ -35,6 +36,7 @@
 	// Modal States
 	let showSearchPegawaiModal = $state(false);
 	let showAddPegawaiModal = $state(false);
+	let showMutasiMasalModal = $state(false);
 	let showDeleteModal = $state(false);
 	let showProcessModal = $state(false);
 	let showPreviewModal = $state(false);
@@ -103,20 +105,22 @@
 
 	// Unor Options untuk Combobox / Tree
 	let unorOptions = $derived(
-		refUnorInduk.map((u) => ({
-			id: u.id,
-			value: u.id,
-			nmUnor: (u.nmUnor || '').trim(),
-			label: (u.nmUnor || '').trim(),
-			parent_id: u.parent_id,
-			level: u.level,
-			kode: u.kode,
-			jab_id: u.resolved_jab_id || u.jab_id,
-			jns_jab_id: u.jns_jab_id,
-			jenjang_jab_id: u.jenjang_jab_id,
-			eselon_id: u.eselon_id,
-			isAktif: u.isAktif,
-		}))
+		refUnorInduk
+			.filter((u) => u.isAktif === 1 || u.isAktif === true || u.isAktif === '1' || u.isAktif === undefined)
+			.map((u) => ({
+				id: u.id,
+				value: u.id,
+				nmUnor: (u.nmUnor || '').trim(),
+				label: (u.nmUnor || '').trim(),
+				parent_id: u.parent_id,
+				level: u.level,
+				kode: u.kode,
+				jab_id: u.resolved_jab_id || u.jab_id,
+				jns_jab_id: u.jns_jab_id,
+				jenjang_jab_id: u.jenjang_jab_id,
+				eselon_id: u.eselon_id,
+				isAktif: u.isAktif,
+			}))
 	);
 
 
@@ -357,6 +361,14 @@
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
 					Tambah Pegawai
 				</Button>
+				<button
+					type="button"
+					onclick={() => (showMutasiMasalModal = true)}
+					class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
+				>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+					Mutasi Masal OPD
+				</button>
 				<button
 					onclick={() => (showProcessModal = true)}
 					disabled={!skDetail?.pegawai_list || skDetail.pegawai_list.length === 0}
@@ -857,10 +869,27 @@
 
 <!-- Modal Konfirmasi Hapus Pegawai -->
 <ConfirmDeleteModal
-	open={showDeleteModal}
+	bind:show={showDeleteModal}
+	verifyText=""
 	title="Hapus Pegawai dari SK"
-	message={`Apakah Anda yakin ingin menghapus ${itemToDelete?.nama} (${itemToDelete?.nip}) dari daftar SK Kolektif ini?`}
+	message={`Apakah Anda yakin ingin menghapus ${itemToDelete?.nama || 'pegawai'} (${itemToDelete?.nip || ''}) dari daftar SK Kolektif ini?`}
 	loading={deleteLoading}
 	onConfirm={handleRemovePegawai}
 	onCancel={() => { showDeleteModal = false; itemToDelete = null; }}
 />
+
+
+<!-- Modal Mutasi Masal OPD -->
+<MutasiMasalModal
+	isOpen={showMutasiMasalModal}
+	{skId}
+	{skDetail}
+	{refUnorTree}
+	refUnorFlat={unorOptions}
+	refJabatan={refDaftarJabatan}
+	onclose={() => (showMutasiMasalModal = false)}
+	onsuccess={async () => {
+		await loadDetail();
+	}}
+/>
+

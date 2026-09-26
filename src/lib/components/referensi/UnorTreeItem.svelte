@@ -11,6 +11,7 @@
     loadChildren, 
     selectedId = null, 
     onSelect = null, 
+    showInactive = false,
     expandedKeys = $bindable() 
   } = $props();
 
@@ -49,7 +50,7 @@
 </script>
 
 <div class="select-none">
-  <div class="flex items-center group hover:bg-zinc-50 dark:hover:bg-zinc-800/30 rounded-xl transition-colors {isSelected ? 'bg-indigo-50/70 dark:bg-indigo-950/40 ring-1 ring-indigo-500/20' : ''}">
+  <div class="flex items-center group hover:bg-zinc-50 dark:hover:bg-zinc-800/30 rounded-xl transition-colors {isSelected ? 'bg-indigo-50/70 dark:bg-indigo-950/40 ring-1 ring-indigo-500/20' : (item.isAktif === 0 || item.isAktif === false || item.isAktif === '0' ? 'bg-rose-50/20 dark:bg-rose-950/10' : '')}">
     <!-- Row Content (Clickable) -->
     <button 
       type="button"
@@ -72,7 +73,7 @@
       </div>
 
       <!-- Icon based on Level -->
-      <div class="mr-3 shrink-0 {isSelected ? 'text-indigo-600 dark:text-indigo-400' : 'text-indigo-500 dark:text-indigo-400'}">
+      <div class="mr-3 shrink-0 {isSelected ? 'text-indigo-600 dark:text-indigo-400' : (item.isAktif === 0 || item.isAktif === false || item.isAktif === '0' ? 'text-rose-400 dark:text-rose-500' : 'text-indigo-500 dark:text-indigo-400')}">
         {#if item.level === 'instansi'}
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3l2-4h14l2 4"/><path d="M5 21V10.85"/><path d="M19 21V10.85"/><path d="M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4"/></svg>
         {:else if item.level === 'induk'}
@@ -85,7 +86,7 @@
       <!-- Info -->
       <div class="flex flex-col min-w-0 flex-1 pr-2 py-0.5">
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-sm {isSelected ? 'text-indigo-700 dark:text-indigo-300 font-bold' : 'font-semibold text-zinc-900 dark:text-zinc-100'} truncate">
+          <span class="text-sm {isSelected ? 'text-indigo-700 dark:text-indigo-300 font-bold' : (item.isAktif === 0 || item.isAktif === false || item.isAktif === '0' ? 'font-medium text-zinc-500 dark:text-zinc-400' : 'font-semibold text-zinc-900 dark:text-zinc-100')} truncate">
             {item.nmUnor || item.instansi || 'Unit Tanpa Nama'}
           </span>
           {#if item.isAktif === 0 || item.isAktif === false || item.isAktif === '0'}
@@ -110,6 +111,31 @@
             {#if item.jenjang_jab}
               <span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 uppercase">
                 {item.jenjang_jab}
+              </span>
+            {/if}
+          </div>
+        {/if}
+
+        {#if showInactive && item.level !== 'instansi'}
+          <div class="flex items-center gap-1.5 flex-wrap mt-1">
+            {#if item.peraturan}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50/90 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/60 shadow-xs">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                <span>No. Peraturan: <span class="font-black text-amber-900 dark:text-amber-100">{item.peraturan}</span>{item.tahun ? ` (${item.tahun})` : ''}</span>
+              </span>
+            {:else}
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-zinc-400 dark:text-zinc-500 italic bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/40">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-zinc-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                </svg>
+                <span>Tanpa No. Peraturan</span>
               </span>
             {/if}
           </div>
@@ -199,6 +225,7 @@
           {loadChildren}
           {selectedId}
           {onSelect}
+          {showInactive}
           bind:expandedKeys
         />
       {/each}

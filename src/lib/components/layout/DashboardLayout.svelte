@@ -27,7 +27,9 @@
 		'/ref-jns-mutasi': 'Referensi Jenis Mutasi',
 		'/ref-jns-hukuman': 'Referensi Jenis Hukuman',
 		'/ref-jns-unor': 'Referensi Jenis Unit Organisasi',
-		'/pensiun': 'Manajemen Pensiun Pegawai'
+		'/peremajaan-data-induk': 'Peremajaan Data Induk',
+		'/pemberhentian': 'Pemberhentian',
+		'/pensiun': 'Pemberhentian'
 	};
 
 	let pageTitle = $derived.by(() => {

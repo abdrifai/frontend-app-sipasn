@@ -16,6 +16,7 @@
 	} = $props();
 
 	let search = $state('');
+	const selectedStatus = 'aktif';
 	let pegawai = $state([]);
 	let loading = $state(false);
 	let error = $state(null);
@@ -60,7 +61,8 @@
 			const query = new URLSearchParams({
 				page: page.toString(),
 				limit: limit.toString(),
-				search: search.trim()
+				search: search.trim(),
+				status: selectedStatus
 			});
 			const res = await api(`/pegawai?${query.toString()}`);
 			pegawai = res.data || [];
@@ -173,6 +175,9 @@
 						<h3 class="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100">
 							Cari Data Pegawai
 						</h3>
+						<span class="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/50">
+							Aktif
+						</span>
 					</div>
 
 					<button 

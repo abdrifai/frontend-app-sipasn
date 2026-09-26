@@ -10,7 +10,7 @@
 	import EmptyState from '$lib/components/feedback/EmptyState.svelte';
 	import ConfirmDeleteModal from '$lib/components/feedback/ConfirmDeleteModal.svelte';
 
-	let { initialKategori = '' } = $props();
+	let { initialKategori = '', allowCreate = true } = $props();
 
 	let data = $state([]);
 	let loading = $state(true);
@@ -444,7 +444,7 @@
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
 				<span>Jabatan struktural diinput via Master Unit Organisasi</span>
 			</div>
-		{:else}
+		{:else if allowCreate && (selectedKategori === 'FUNGSIONAL' || selectedKategori === 'PELAKSANA')}
 			<Button variant="primary" onclick={openCreate}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mr-1.5"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
 				Tambah Jabatan

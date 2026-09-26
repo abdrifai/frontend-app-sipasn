@@ -49,7 +49,7 @@
 	<!-- Main Content Area -->
 	<Card>
 		{#if activeTab === 'semua'}
-			<JabatanTab initialKategori="" />
+			<JabatanTab initialKategori="" allowCreate={false} />
 		{:else if activeTab === 'struktural'}
 			<JabatanTab initialKategori="STRUKTURAL" />
 		{:else if activeTab === 'fungsional'}

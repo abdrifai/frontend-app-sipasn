@@ -3,13 +3,17 @@
 
 	let { 
 		show = $bindable(false), 
+		open = $bindable(false),
 		title = 'Hapus Data', 
 		message = 'Apakah Anda yakin ingin menghapus data ini?', 
-		verifyText = 'delete',
+		verifyText = '',
 		onConfirm,
+		onCancel = null,
+		onClose = null,
 		loading = false
 	} = $props();
 
+	let isVisible = $derived(show || open);
 	let inputVal = $state('');
 	
 	function handleConfirm() {
@@ -21,19 +25,22 @@
 	function close() {
 		if (!loading) {
 			show = false;
+			open = false;
 			inputVal = '';
+			if (onCancel) onCancel();
+			if (onClose) onClose();
 		}
 	}
 
 	// Reset input when modal closes
 	$effect(() => {
-		if (!show) {
+		if (!isVisible) {
 			inputVal = '';
 		}
 	});
 </script>
 
-{#if show}
+{#if isVisible}
 	<div class="fixed inset-0 z-[110] flex items-center justify-center p-6">
 		<!-- Backdrop -->
 		<div 

@@ -20,6 +20,8 @@
 		"vite": "^7.3.1"
 	},
 	"dependencies": {
+		"pdf-lib": "^1.17.1",
+		"pdfjs-dist": "^6.3.289",
 		"svelte-easy-crop": "^5.0.1"
 	}
 }

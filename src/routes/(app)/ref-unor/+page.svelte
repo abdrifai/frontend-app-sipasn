@@ -31,6 +31,7 @@
 	let loading = $state(true);
 	let error = $state(null);
 	let selectedInstansiKode = $state(7209);
+	let showInactive = $state(false);
 
 	// Tree Selection & Preservation State
 	let selectedId = $state(null);
@@ -50,6 +51,9 @@
 	let showDeleteConfirm = $state(false);
 	let itemToDelete = $state(null);
 	let deleteLoading = $state(false);
+	let deletePegawaiWarning = $state(null);
+	let showDeletePegawaiWarningModal = $state(false);
+	let checkingDeletePegawai = $state(false);
 
 	// Move / Transfer Unit State (Tree Picker)
 	let showMoveModal = $state(false);
@@ -154,7 +158,8 @@
 		loading = true;
 		error = null;
 		try {
-			const res = await api(`/ref-unor/tree?kode=${selectedInstansiKode}`);
+			const inactiveParam = showInactive ? '&onlyInactive=true' : '';
+			const res = await api(`/ref-unor/tree?kode=${selectedInstansiKode}${inactiveParam}`);
 			treeData = res.data;
 		} catch (err) {
 			error = err.message;
@@ -166,12 +171,15 @@
 	async function loadUnorIndukOptions() {
 		loadingInduk = true;
 		try {
-			const res = await api(`/ref-unor/induk?limit=1000&instansi_kode=${selectedInstansiKode}`);
+			const inactiveParam = showInactive ? '&onlyInactive=true' : '';
+			const res = await api(`/ref-unor/induk?limit=1000&instansi_kode=${selectedInstansiKode}${inactiveParam}`);
 			const list = res?.data || [];
 			unorIndukOptions = list.map(item => ({
 				id: item.id,
 				value: item.id,
-				label: item.nmUnor,
+				label: showInactive 
+					? `${item.nmUnor} ${item.peraturan ? `(No. Peraturan: ${item.peraturan})` : '(Tanpa No. Peraturan)'}`
+					: item.nmUnor,
 				kode: item.kode,
 				item
 			}));
@@ -200,13 +208,18 @@
 		try {
 			const targetOption = unorIndukOptions.find(o => o.value === selectedUnorIndukId);
 			const targetName = targetOption?.label || 'Unit Organisasi Induk';
+			const inactiveParam = showInactive ? '&onlyInactive=true' : '';
 
-			const res = await api(`/ref-unor/tree?level=induk&parentId=${selectedUnorIndukId}`);
+			const res = await api(`/ref-unor/tree?level=induk&parentId=${selectedUnorIndukId}${inactiveParam}`);
 			
 			treeData = [{
 				id: selectedUnorIndukId,
 				nmUnor: targetName,
 				level: 'induk',
+				isAktif: targetOption?.item?.isAktif ?? 1,
+				peraturan: targetOption?.item?.peraturan || null,
+				tglPeraturan: targetOption?.item?.tglPeraturan || null,
+				tahun: targetOption?.item?.tahun || null,
 				hasChildren: (res.data || []).length > 0,
 				children: res.data || [],
 				expanded: true,
@@ -231,6 +244,14 @@
 		} else {
 			loadTree();
 		}
+	}
+
+	function handleToggleInactive() {
+		showInactive = !showInactive;
+		selectedUnorIndukId = '';
+		searchKeyword = '';
+		loadUnorIndukOptions();
+		loadTree();
 	}
 
 	let displayedTreeData = $derived.by(() => {
@@ -287,7 +308,8 @@
 
 	async function loadChildren(parentId, level) {
 		try {
-			const res = await api(`/ref-unor/tree?level=${level}&parentId=${parentId}`);
+			const inactiveParam = showInactive ? '&onlyInactive=true' : '';
+			const res = await api(`/ref-unor/tree?level=${level}&parentId=${parentId}${inactiveParam}`);
 			const newChildren = res.data || [];
 			
 			// Deep recursive update that returns a new array to ensure reactivity,
@@ -602,8 +624,27 @@
 		showModal = true;
 	}
 
-	function handleDelete(item) {
+	async function handleDelete(item) {
 		itemToDelete = item;
+		deletePegawaiWarning = null;
+		checkingDeletePegawai = true;
+
+		try {
+			const res = await api(`/ref-unor/check-active-pegawai/${item.id}`);
+			if (res?.data?.count > 0) {
+				deletePegawaiWarning = {
+					...res.data,
+					unor: item
+				};
+				showDeletePegawaiWarningModal = true;
+				return;
+			}
+		} catch (err) {
+			console.error('Gagal mengecek pegawai sebelum delete:', err);
+		} finally {
+			checkingDeletePegawai = false;
+		}
+
 		showDeleteConfirm = true;
 	}
 
@@ -1025,7 +1066,15 @@
 			treeData = removeNodeFromTree(treeData, itemToDelete.id);
 			selectedId = null;
 		} catch (err) {
-			toast.error('Gagal menghapus: ' + err.message);
+			showDeleteConfirm = false;
+			if (err.errors && (err.errors.count > 0 || Array.isArray(err.errors.pegawai))) {
+				deletePegawaiWarning = {
+					...err.errors,
+					unor: itemToDelete
+				};
+				showDeletePegawaiWarningModal = true;
+			}
+			toast.error(err.message || 'Gagal menghapus unit organisasi');
 		} finally {
 			deleteLoading = false;
 		}
@@ -1076,6 +1125,21 @@
 				</div>
 			{/if}
 		</div>
+
+		<!-- Tombol Toggle Tampilkan Non-Aktif -->
+		<div class="flex items-center gap-2 pb-0.5">
+			<button
+				type="button"
+				onclick={handleToggleInactive}
+				class="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm {showInactive 
+					? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-800 ring-2 ring-rose-500/20' 
+					: 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'}"
+				title="Tampilkan khusus unit organisasi yang dinonaktifkan"
+			>
+				<span class="inline-block w-2 h-2 rounded-full {showInactive ? 'bg-rose-500 animate-pulse' : 'bg-zinc-300 dark:bg-zinc-600'}"></span>
+				<span>{showInactive ? 'Mode: Khusus Unit Non-Aktif' : 'Tampilkan Unit Non-Aktif'}</span>
+			</button>
+		</div>
 	</div>
 
 	<Card>
@@ -1087,6 +1151,11 @@
 					{#if selectedUnorIndukId}
 						<span class="ml-2 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 font-semibold normal-case">
 							Terfilter Unor Induk
+						</span>
+					{/if}
+					{#if showInactive}
+						<span class="ml-2 px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 font-semibold normal-case">
+							Khusus Unit Non-Aktif
 						</span>
 					{/if}
 				</div>
@@ -1115,7 +1184,7 @@
 		{:else if error}
 			<ErrorState message={error} onRetry={loadTree} />
 		{:else if displayedTreeData.length === 0}
-			<EmptyState message="Tidak ada unit organisasi yang sesuai dengan filter/pencarian." />
+			<EmptyState message={showInactive ? 'Tidak ada unit organisasi non-aktif yang ditemukan.' : 'Tidak ada unit organisasi yang sesuai dengan filter/pencarian.'} />
 		{:else}
 			<div class="space-y-1">
 				{#each displayedTreeData as item (item.id)}
@@ -1128,6 +1197,7 @@
 						onReorder={handleOpenReorder}
 						{loadChildren}
 						{selectedId}
+						{showInactive}
 						onSelect={(selectedItem) => { selectedId = selectedItem.id; }}
 						bind:expandedKeys
 					/>
@@ -1527,6 +1597,86 @@
 	loading={deleteLoading}
 	onConfirm={executeDelete}
 />
+
+<!-- Modal Peringatan Pegawai Aktif Saat Hapus Unit Organisasi -->
+{#if showDeletePegawaiWarningModal && deletePegawaiWarning}
+	<div class="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+		<div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-lg p-6 space-y-4 text-center">
+			
+			<div class="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-800/80">
+				<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+				</svg>
+			</div>
+
+			<div>
+				<h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+					Tidak Dapat Menghapus Unit Organisasi
+				</h3>
+				<p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+					Unit <strong class="text-zinc-800 dark:text-zinc-200 font-bold">{deletePegawaiWarning.unor?.nmUnor || deletePegawaiWarning.unor_nama || 'terpilih'}</strong> tidak dapat dihapus karena masih memiliki data pegawai aktif yang bertugas.
+				</p>
+			</div>
+
+			<div class="p-4 bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 rounded-2xl text-left space-y-2.5">
+				<div class="flex items-center justify-between">
+					<span class="text-xs text-rose-800 dark:text-rose-300 font-bold flex items-center gap-1.5">
+						<span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+						Daftar Pegawai Aktif Terdaftar:
+					</span>
+					<span class="px-2 py-0.5 rounded-full bg-rose-200/80 dark:bg-rose-900/80 text-rose-800 dark:text-rose-200 text-2xs font-black">
+						{deletePegawaiWarning.count} Pegawai
+					</span>
+				</div>
+
+				<div class="bg-white/90 dark:bg-zinc-900/90 rounded-xl border border-rose-200/60 dark:border-rose-800/40 p-2 space-y-1.5 max-h-48 overflow-y-auto">
+					{#each (deletePegawaiWarning.pegawai || []) as p}
+						<div class="p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 flex items-center justify-between gap-3 text-xs border border-zinc-100 dark:border-zinc-800">
+							<div class="min-w-0">
+								<div class="font-bold text-zinc-900 dark:text-zinc-100 truncate">
+									{p.nama}
+								</div>
+								<div class="text-[11px] font-mono text-zinc-400">
+									NIP: {p.nip}
+								</div>
+							</div>
+							<div class="text-right shrink-0">
+								<span class="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-[10px] font-semibold">
+									{p.jabatan || 'Pegawai'}
+								</span>
+							</div>
+						</div>
+					{/each}
+					{#if deletePegawaiWarning.count > (deletePegawaiWarning.pegawai?.length || 0)}
+						<p class="text-center text-[10px] text-zinc-400 italic py-1">
+							... dan {deletePegawaiWarning.count - deletePegawaiWarning.pegawai.length} pegawai aktif lainnya
+						</p>
+					{/if}
+				</div>
+
+				<p class="text-2xs text-rose-700 dark:text-rose-300/90 leading-relaxed font-medium">
+					Harap lakukan mutasi / pemindahan unit kerja pegawai di atas terlebih dahulu melalui menu <strong>Peremajaan Kolektif (Mutasi Pegawai)</strong> sebelum menghapus unit ini.
+				</p>
+			</div>
+
+			<div class="pt-2 flex items-center justify-end gap-2.5">
+				<Button 
+					variant="secondary" 
+					onclick={() => { showDeletePegawaiWarningModal = false; deletePegawaiWarning = null; }}
+				>
+					Tutup
+				</Button>
+				<a 
+					href="/peremajaan-kolektif" 
+					class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 transition cursor-pointer"
+				>
+					<span>Buka Mutasi Pegawai</span>
+					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+				</a>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <!-- Modal Konfirmasi Perubahan Status -->
 {#if showStatusConfirm}

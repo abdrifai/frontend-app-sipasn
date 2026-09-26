@@ -61,7 +61,7 @@
 		{ id: (currentYear + 1).toString(), label: `Tahun ${currentYear + 1}` },
 		{ id: (currentYear + 2).toString(), label: `Tahun ${currentYear + 2}` },
 		{ id: (currentYear + 3).toString(), label: `Tahun ${currentYear + 3}` },
-		{ id: '5_tahun', label: '5 Tahun (2026-2030)' },
+		{ id: '5_tahun', label: `5 Tahun (${currentYear}-${currentYear + 4})` },
 		{ id: 'sudah_bup', label: 'Sudah BUP' },
 		{ id: 'all', label: 'Semua Proyeksi' },
 	];
@@ -140,6 +140,12 @@
 	}
 
 	function handleFilterChange() {
+		page = 1;
+		loadData();
+	}
+
+	function handleUnorChange(val) {
+		selectedUnorId = val || '';
 		page = 1;
 		loadData();
 	}
@@ -372,6 +378,7 @@
 					options={unorOptions}
 					bind:value={selectedUnorId}
 					disabled={loadingOptions}
+					onchange={handleUnorChange}
 					class="w-full"
 				/>
 			</div>

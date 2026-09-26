@@ -14,6 +14,9 @@
 
 	const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : '';
 
+	// Tab State
+	let activeTab = $state('pensiun'); // 'pensiun' | 'rekap'
+
 	// Table Data State
 	let pensiunList = $state([]);
 	let loading = $state(true);
@@ -24,6 +27,13 @@
 	let limit = $state(10);
 	let total = $state(0);
 	let totalPages = $state(1);
+
+	// Rekap Tahunan State
+	let rekapData = $state([]);
+	let rekapSummary = $state({});
+	let rekapLoading = $state(false);
+	let rekapError = $state(null);
+	let downloadingRekapExcel = $state(false);
 
 	// Kedudukan Options
 	let kedudukanOptions = $state([]);
@@ -55,6 +65,38 @@
 	let selectedFileSK = $state(null);
 	let fieldErrors = $state({});
 
+	function getKedudukanBadgeStyle(name = '') {
+		const upper = (name || '').toUpperCase();
+		if (upper.includes('HUKUMAN') || upper.includes('TIDAK HORMAT')) {
+			return {
+				badge: 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300',
+				dot: 'bg-rose-500'
+			};
+		}
+		if (upper.includes('PINDAH')) {
+			return {
+				badge: 'bg-purple-50 dark:bg-purple-950/60 border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300',
+				dot: 'bg-purple-500'
+			};
+		}
+		if (upper.includes('PENSIUN')) {
+			return {
+				badge: 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300',
+				dot: 'bg-amber-500'
+			};
+		}
+		if (upper.includes('DENGAN HORMAT')) {
+			return {
+				badge: 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300',
+				dot: 'bg-blue-500'
+			};
+		}
+		return {
+			badge: 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300',
+			dot: 'bg-zinc-500'
+		};
+	}
+
 	onMount(async () => {
 		await loadKedudukanOptions();
 		await loadData();
@@ -62,13 +104,13 @@
 
 	async function loadKedudukanOptions() {
 		try {
-			const res = await api('/pensiun/kedudukan-options');
+			const res = await api('/pemberhentian/kedudukan-options');
 			kedudukanOptions = res.data || [];
 			if (kedudukanOptions.length > 0 && !form.kedudukanpns_id) {
 				form.kedudukanpns_id = kedudukanOptions[0].id.toString();
 			}
 		} catch (err) {
-			console.error('Gagal memuat opsi kedudukan pensiun:', err);
+			console.error('Gagal memuat opsi kedudukan pemberhentian:', err);
 		}
 	}
 
@@ -82,14 +124,53 @@
 				...(search ? { search: search.trim() } : {}),
 				...(selectedKedudukanFilter ? { kedudukanpns_id: selectedKedudukanFilter } : {})
 			});
-			const res = await api(`/pensiun?${query.toString()}`);
+			const res = await api(`/pemberhentian?${query.toString()}`);
 			pensiunList = res.data || [];
 			total = res.meta?.total || 0;
 			totalPages = res.meta?.totalPages || 1;
 		} catch (err) {
-			error = err.message || 'Gagal memuat data pensiun';
+			error = err.message || 'Gagal memuat data riwayat pemberhentian';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadRekap() {
+		rekapLoading = true;
+		rekapError = null;
+		try {
+			const res = await api('/pensiun/rekap-tahunan');
+			rekapData = res.data || [];
+			rekapSummary = res.meta?.summary || {};
+		} catch (err) {
+			rekapError = err.message || 'Gagal memuat rekapitulasi tahunan';
+		} finally {
+			rekapLoading = false;
+		}
+	}
+
+	async function downloadRekapExcel() {
+		downloadingRekapExcel = true;
+		try {
+			const BASE_URL = import.meta.env.VITE_API_URL;
+			const res = await fetch(`${BASE_URL}/pensiun/rekap-tahunan/export`, {
+				credentials: 'include'
+			});
+			if (!res.ok) throw new Error('Gagal mengunduh file Excel');
+			const blob = await res.blob();
+			const url = window.URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `Rekap_Tahunan_NonAktif_${Date.now()}.xlsx`;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			window.URL.revokeObjectURL(url);
+			toast.success('File Excel rekapitulasi berhasil diunduh');
+		} catch (err) {
+			toast.error(err.message || 'Gagal mengunduh file Excel');
+		} finally {
+			downloadingRekapExcel = false;
 		}
 	}
 
@@ -134,7 +215,7 @@
 		const file = e.target.files[0];
 		if (file) {
 			if (file.type !== 'application/pdf') {
-				toast.error('File SK Pensiun harus berformat PDF');
+				toast.error('File SK harus berformat PDF');
 				e.target.value = '';
 				selectedFileSK = null;
 				return;
@@ -153,12 +234,12 @@
 
 	async function handleSubmitProcess() {
 		if (!form.pegawai_id) {
-			toast.error('Silakan pilih pegawai yang akan diproses pensiun');
+			toast.error('Silakan pilih pegawai yang akan diproses pemberhentian');
 			return;
 		}
 
 		if (!form.kedudukanpns_id) {
-			toast.error('Pilih jenis pensiun');
+			toast.error('Pilih jenis pemberhentian / status kedudukan');
 			return;
 		}
 
@@ -179,7 +260,7 @@
 			}
 
 			const BASE_URL = import.meta.env.VITE_API_URL;
-			const res = await fetch(`${BASE_URL}/pensiun`, {
+			const res = await fetch(`${BASE_URL}/pemberhentian`, {
 				method: 'POST',
 				body: formData,
 				credentials: 'include'
@@ -193,10 +274,10 @@
 						return acc;
 					}, {});
 				}
-				throw new Error(data.message || 'Gagal menyimpan penetapan pensiun');
+				throw new Error(data.message || 'Gagal menyimpan penetapan pemberhentian');
 			}
 
-			toast.success('Penetapan pensiun pegawai berhasil disimpan');
+			toast.success('Penetapan pemberhentian pegawai berhasil disimpan');
 			showProcessModal = false;
 			await loadData();
 		} catch (err) {
@@ -215,13 +296,13 @@
 		if (!itemToDelete) return;
 		deleteLoading = true;
 		try {
-			await api(`/pensiun/${itemToDelete.id}`, { method: 'DELETE' });
-			toast.success('Data pensiun berhasil dibatalkan/dihapus');
+			await api(`/pemberhentian/${itemToDelete.id}`, { method: 'DELETE' });
+			toast.success('Data pemberhentian berhasil dibatalkan/dihapus');
 			showDeleteModal = false;
 			itemToDelete = null;
 			await loadData();
 		} catch (err) {
-			toast.error(err.message || 'Gagal menghapus data pensiun');
+			toast.error(err.message || 'Gagal menghapus data riwayat pemberhentian');
 		} finally {
 			deleteLoading = false;
 		}
@@ -275,7 +356,7 @@
 </script>
 
 <svelte:head>
-	<title>Manajemen Pensiun Pegawai | SIPASN</title>
+	<title>Pemberhentian | SIPASN</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -288,18 +369,44 @@
 				</span>
 			</div>
 			<h1 class="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
-				Manajemen Pensiun Pegawai
+				Pemberhentian
 			</h1>
 			<p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-				Pengelolaan penetapan pensiun ASN, pembaruan status kedudukan, dan pengarsipan SK Pensiun.
+				Pengelolaan penetapan pensiun dan pemberhentian ASN, pembaruan status kedudukan, dan pengarsipan SK.
 			</p>
 		</div>
 
 		<Button variant="primary" onclick={openCreateProcess} class="shadow-lg shadow-indigo-500/20">
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-			Proses Pensiun Pegawai
+			Proses Pemberhentian Pegawai
 		</Button>
 	</div>
+
+	<!-- Tab Switcher Navigation -->
+	<div class="flex flex-wrap items-center gap-2 border-b border-zinc-200/80 dark:border-zinc-800 pb-3">
+		<button
+			type="button"
+			onclick={() => { activeTab = 'pensiun'; }}
+			class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 {activeTab === 'pensiun'
+				? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+				: 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800'}"
+		>
+			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+			Daftar Riwayat Pemberhentian ({total})
+		</button>
+		<button
+			type="button"
+			onclick={() => { activeTab = 'rekap'; if (rekapData.length === 0) loadRekap(); }}
+			class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 {activeTab === 'rekap'
+				? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+				: 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800'}"
+		>
+			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+			Rekapitulasi Tahunan (Tren Non-Aktif & Perubahan Data)
+		</button>
+	</div>
+
+	{#if activeTab === 'pensiun'}
 
 	<!-- Stats Bar -->
 	<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -308,7 +415,7 @@
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
 			</div>
 			<div>
-				<p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Total Pegawai Pensiun</p>
+				<p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Total Pegawai Non-Aktif / Berhenti</p>
 				<p class="text-2xl font-black text-zinc-900 dark:text-zinc-100">{total}</p>
 			</div>
 		</div>
@@ -318,7 +425,7 @@
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
 			</div>
 			<div>
-				<p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Status Kedudukan</p>
+				<p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Status Kedudukan PNS</p>
 				<p class="text-sm font-bold text-emerald-600 dark:text-emerald-400">Ter-update Otomatis</p>
 			</div>
 		</div>
@@ -339,7 +446,7 @@
 		<div class="w-full sm:w-80 relative">
 			<input
 				type="text"
-				placeholder="Cari No. SK / Keterangan..."
+				placeholder="Cari Nama / NIP / No. SK / Keterangan..."
 				bind:value={search}
 				oninput={handleSearchInput}
 				class="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
@@ -353,7 +460,7 @@
 				onchange={() => { page = 1; loadData(); }}
 				class="px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs outline-none font-medium text-zinc-700 dark:text-zinc-300"
 			>
-				<option value="">Semua Jenis Pensiun</option>
+				<option value="">Semua Status Kedudukan</option>
 				{#each kedudukanOptions as opt}
 					<option value={opt.id.toString()}>{opt.kedudukanpns}</option>
 				{/each}
@@ -364,11 +471,11 @@
 	<!-- Table Area -->
 	<div class="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-2xs">
 		{#if loading}
-			<LoadingState message="Memuat data riwayat pensiun..." />
+			<LoadingState message="Memuat data riwayat pemberhentian..." />
 		{:else if error}
 			<ErrorState message={error} onRetry={loadData} />
 		{:else if pensiunList.length === 0}
-			<EmptyState message="Belum ada riwayat penetapan pensiun." icon="📜" />
+			<EmptyState message="Belum ada riwayat penetapan pemberhentian." icon="📜" />
 		{:else}
 			<div class="overflow-x-auto">
 				<table class="w-full text-left border-collapse">
@@ -376,15 +483,16 @@
 						<tr class="bg-zinc-50/80 dark:bg-zinc-950/60 border-b border-zinc-200/80 dark:border-zinc-800 text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
 							<th class="py-3.5 px-4">Pegawai</th>
 							<th class="py-3.5 px-4">Jabatan & Unit Organisasi</th>
-							<th class="py-3.5 px-4">Kedudukan / Jenis Pensiun</th>
-							<th class="py-3.5 px-4">SK Pensiun</th>
-							<th class="py-3.5 px-4">TMT Pensiun</th>
+							<th class="py-3.5 px-4">Status Kedudukan Baru</th>
+							<th class="py-3.5 px-4">SK Penetapan</th>
+							<th class="py-3.5 px-4">TMT Berlaku</th>
 							<th class="py-3.5 px-4 text-center">Dokumen SK</th>
 							<th class="py-3.5 px-4 text-right">Aksi</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/60 text-xs">
 						{#each pensiunList as item}
+							{@const badgeStyle = getKedudukanBadgeStyle(item.nama_kedudukan)}
 							<tr class="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40 transition-colors">
 								<!-- Pegawai -->
 								<td class="py-3.5 px-4">
@@ -407,15 +515,15 @@
 									<p class="text-[11px] text-zinc-500 truncate">{item.pegawai?.unor || '-'}</p>
 								</td>
 
-								<!-- Jenis Pensiun -->
+								<!-- Jenis Kedudukan -->
 								<td class="py-3.5 px-4">
-									<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 font-bold text-[10px] uppercase tracking-wider">
-										<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-										{item.nama_kedudukan || 'PENSIUN'}
+									<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border font-bold text-[10px] uppercase tracking-wider {badgeStyle.badge}">
+										<span class="w-1.5 h-1.5 rounded-full {badgeStyle.dot}"></span>
+										{item.nama_kedudukan || 'PEMBERHENTIAN'}
 									</span>
 								</td>
 
-								<!-- SK Pensiun -->
+								<!-- SK Pemberhentian -->
 								<td class="py-3.5 px-4">
 									<p class="font-bold text-zinc-900 dark:text-zinc-100">{item.no_sk || '-'}</p>
 									<p class="text-[11px] text-zinc-500">
@@ -423,7 +531,7 @@
 									</p>
 								</td>
 
-								<!-- TMT Pensiun -->
+								<!-- TMT Berlaku -->
 								<td class="py-3.5 px-4 font-bold text-zinc-800 dark:text-zinc-200">
 									{item.tmt_pensiun ? new Date(item.tmt_pensiun).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
 								</td>
@@ -475,6 +583,109 @@
 			</div>
 		{/if}
 	</div>
+	{:else if activeTab === 'rekap'}
+		<!-- Rekapitulasi Tahunan View -->
+		<div class="space-y-6">
+			<!-- KPI Summary Cards -->
+			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+				<div class="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
+					<p class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Pensiun BUP</p>
+					<p class="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">{(rekapSummary.total_pensiun_bup || 0).toLocaleString('id-ID')}</p>
+				</div>
+				<div class="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
+					<p class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Pensiun Janda/Dini</p>
+					<p class="text-xl font-black text-orange-600 dark:text-orange-400 mt-1">{(rekapSummary.total_pensiun_janda_duda_dini || 0).toLocaleString('id-ID')}</p>
+				</div>
+				<div class="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
+					<p class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Pindah Keluar</p>
+					<p class="text-xl font-black text-blue-600 dark:text-blue-400 mt-1">{(rekapSummary.total_pindah_keluar || 0).toLocaleString('id-ID')}</p>
+				</div>
+				<div class="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
+					<p class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Pemberhentian</p>
+					<p class="text-xl font-black text-rose-600 dark:text-rose-400 mt-1">{(rekapSummary.total_pemberhentian_hukuman || 0).toLocaleString('id-ID')}</p>
+				</div>
+				<div class="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
+					<p class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Gelar & Identitas</p>
+					<p class="text-xl font-black text-purple-600 dark:text-purple-400 mt-1">{(rekapSummary.total_perubahan_identitas_gelar || 0).toLocaleString('id-ID')}</p>
+				</div>
+				<div class="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
+					<p class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Total Peristiwa</p>
+					<p class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{(rekapSummary.grand_total || 0).toLocaleString('id-ID')}</p>
+				</div>
+			</div>
+
+			<!-- Toolbar Rekap -->
+			<div class="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+				<div>
+					<h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-50">Tren Rekapitulasi Tahunan</h3>
+					<p class="text-xs text-zinc-500 dark:text-zinc-400">Jumlah pegawai non-aktif dan perubahan data induk berdasarkan tahun penetapan TMT SK.</p>
+				</div>
+				<div class="flex items-center gap-2">
+					<Button variant="secondary" onclick={loadRekap} loading={rekapLoading} class="text-xs">
+						<svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+						Segarkan
+					</Button>
+					<Button variant="primary" onclick={downloadRekapExcel} loading={downloadingRekapExcel} class="text-xs bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20">
+						<svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+						Export Excel
+					</Button>
+				</div>
+			</div>
+
+			<!-- Table Rekap -->
+			<div class="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-2xs">
+				{#if rekapLoading}
+					<LoadingState message="Memuat rekapitulasi tahunan..." />
+				{:else if rekapError}
+					<ErrorState message={rekapError} onRetry={loadRekap} />
+				{:else if rekapData.length === 0}
+					<EmptyState message="Belum ada data rekapitulasi peristiwa kepegawaian." icon="📊" />
+				{:else}
+					<div class="overflow-x-auto">
+						<table class="w-full text-left border-collapse text-xs">
+							<thead>
+								<tr class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+									<th class="py-3.5 px-4 text-center">Tahun (TMT)</th>
+									<th class="py-3.5 px-4 text-right">Pensiun BUP</th>
+									<th class="py-3.5 px-4 text-right">Pensiun Janda / Duda / Dini</th>
+									<th class="py-3.5 px-4 text-right">Pindah Keluar</th>
+									<th class="py-3.5 px-4 text-right">Pemberhentian / Disiplin</th>
+									<th class="py-3.5 px-4 text-right">Perubahan Gelar & Identitas</th>
+									<th class="py-3.5 px-4 text-right font-black text-indigo-600 dark:text-indigo-400">Total Kejadian</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+								{#each rekapData as row}
+									<tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition-colors">
+										<td class="py-3.5 px-4 text-center font-bold text-zinc-800 dark:text-zinc-200">
+											<span class="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 font-mono text-xs">{row.tahun}</span>
+										</td>
+										<td class="py-3.5 px-4 text-right font-medium text-amber-600 dark:text-amber-400">{row.pensiun_bup.toLocaleString('id-ID')}</td>
+										<td class="py-3.5 px-4 text-right font-medium text-orange-600 dark:text-orange-400">{row.pensiun_janda_duda_dini.toLocaleString('id-ID')}</td>
+										<td class="py-3.5 px-4 text-right font-medium text-blue-600 dark:text-blue-400">{row.pindah_keluar.toLocaleString('id-ID')}</td>
+										<td class="py-3.5 px-4 text-right font-medium text-rose-600 dark:text-rose-400">{row.pemberhentian_hukuman.toLocaleString('id-ID')}</td>
+										<td class="py-3.5 px-4 text-right font-medium text-purple-600 dark:text-purple-400">{row.perubahan_identitas_gelar.toLocaleString('id-ID')}</td>
+										<td class="py-3.5 px-4 text-right font-bold text-zinc-900 dark:text-zinc-50">{row.total_kejadian.toLocaleString('id-ID')}</td>
+									</tr>
+								{/each}
+							</tbody>
+							<tfoot>
+								<tr class="bg-zinc-100/80 dark:bg-zinc-800/80 font-bold border-t-2 border-zinc-300 dark:border-zinc-700 text-xs">
+									<td class="py-3.5 px-4 text-center font-black">TOTAL KESELURUHAN</td>
+									<td class="py-3.5 px-4 text-right text-amber-700 dark:text-amber-300 font-black">{(rekapSummary.total_pensiun_bup || 0).toLocaleString('id-ID')}</td>
+									<td class="py-3.5 px-4 text-right text-orange-700 dark:text-orange-300 font-black">{(rekapSummary.total_pensiun_janda_duda_dini || 0).toLocaleString('id-ID')}</td>
+									<td class="py-3.5 px-4 text-right text-blue-700 dark:text-blue-300 font-black">{(rekapSummary.total_pindah_keluar || 0).toLocaleString('id-ID')}</td>
+									<td class="py-3.5 px-4 text-right text-rose-700 dark:text-rose-300 font-black">{(rekapSummary.total_pemberhentian_hukuman || 0).toLocaleString('id-ID')}</td>
+									<td class="py-3.5 px-4 text-right text-purple-700 dark:text-purple-300 font-black">{(rekapSummary.total_perubahan_identitas_gelar || 0).toLocaleString('id-ID')}</td>
+									<td class="py-3.5 px-4 text-right font-black text-indigo-600 dark:text-indigo-400">{(rekapSummary.grand_total || 0).toLocaleString('id-ID')}</td>
+								</tr>
+							</tfoot>
+						</table>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
 </div>
 
 <!-- Modal Form Penetapan Pensiun -->
@@ -484,8 +695,8 @@
 			<!-- Header -->
 			<div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-950/50">
 				<div>
-					<h2 class="text-base font-bold text-zinc-900 dark:text-zinc-50">Form Penetapan Pensiun Pegawai</h2>
-					<p class="text-xs text-zinc-500">Ubah status kedudukan pegawai dari Aktif menjadi Pensiun & lampirkan SK.</p>
+					<h2 class="text-base font-bold text-zinc-900 dark:text-zinc-50">Form Penetapan Pemberhentian Pegawai</h2>
+					<p class="text-xs text-zinc-500">Ubah status kedudukan pegawai dari Aktif menjadi Pensiun / Pemberhentian / Pindah Keluar & lampirkan SK.</p>
 				</div>
 				<button onclick={() => showProcessModal = false} class="text-zinc-400 hover:text-zinc-600 p-1.5 rounded-xl hover:bg-zinc-200/60 dark:hover:bg-zinc-800">
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -497,7 +708,7 @@
 				<!-- Step 1: Select Pegawai -->
 				<div class="space-y-2">
 					<label class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block">
-						Pegawai yang Dipensiunkan <span class="text-rose-500">*</span>
+						Pegawai yang Diberhentikan / Diproses <span class="text-rose-500">*</span>
 					</label>
 
 					{#if selectedPegawai}
@@ -537,7 +748,7 @@
 				<div class="space-y-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
 					<div class="space-y-1">
 						<label for="kedudukanpns_id" class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block">
-							Jenis Pensiun / Status Kedudukan Baru <span class="text-rose-500">*</span>
+							Jenis Pemberhentian / Status Kedudukan Baru <span class="text-rose-500">*</span>
 						</label>
 						<select
 							id="kedudukanpns_id"
@@ -552,14 +763,14 @@
 
 					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<Input
-							label="Nomor SK Pensiun"
+							label="Nomor SK Penetapan"
 							bind:value={form.no_sk}
 							placeholder="Contoh: 800/123/BKPSDM-2026"
 							error={fieldErrors.no_sk}
 						/>
 
 						<Input
-							label="Tanggal SK Pensiun"
+							label="Tanggal SK"
 							type="date"
 							bind:value={form.tgl_sk}
 							error={fieldErrors.tgl_sk}
@@ -568,16 +779,16 @@
 
 					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<Input
-							label="TMT Pensiun (Terhitung Mulai Tanggal)"
+							label="TMT Berlaku (Terhitung Mulai Tanggal)"
 							type="date"
 							bind:value={form.tmt_pensiun}
 							error={fieldErrors.tmt_pensiun}
 						/>
 
-						<!-- File Upload SK Pensiun -->
+						<!-- File Upload SK -->
 						<div class="space-y-1">
 							<label for="file_sk" class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block">
-								File SK Pensiun (PDF)
+								File Dokumen SK (PDF)
 							</label>
 							<input
 								id="file_sk"
@@ -592,12 +803,12 @@
 
 					<div class="space-y-1">
 						<label for="ket" class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block">
-							Keterangan / Alasan Pensiun
+							Keterangan / Alasan
 						</label>
 						<textarea
 							id="ket"
 							bind:value={form.ket}
-							placeholder="Catatan tambahan mengenai penetapan pensiun..."
+							placeholder="Catatan tambahan mengenai penetapan pemberhentian..."
 							rows="2"
 							class="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
 						></textarea>
@@ -609,7 +820,7 @@
 			<div class="px-6 py-4 bg-zinc-50/50 dark:bg-zinc-950/50 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-3">
 				<Button variant="ghost" onclick={() => showProcessModal = false} disabled={submitting}>Batal</Button>
 				<Button variant="primary" onclick={handleSubmitProcess} loading={submitting} disabled={!selectedPegawai}>
-					Simpan & Tetapkan Pensiun
+					Simpan & Tetapkan Pemberhentian
 				</Button>
 			</div>
 		</div>
@@ -626,8 +837,8 @@
 <!-- Modal Delete Confirmation -->
 <ConfirmDeleteModal
 	bind:show={showDeleteModal}
-	title="Batalkan / Hapus Pensiun?"
-	message="Catatan pensiun ini akan dihapus. Jika tidak ada catatan pensiun lain, status kedudukan pegawai akan dikembalikan menjadi PNS AKTIF."
+	title="Batalkan / Hapus Data Pemberhentian?"
+	message="Catatan penetapan ini akan dihapus. Jika tidak ada catatan pemberhentian/pensiun lain, status kedudukan pegawai akan dikembalikan menjadi PNS AKTIF."
 	loading={deleteLoading}
 	onConfirm={executeDelete}
 />

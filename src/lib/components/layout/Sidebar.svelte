@@ -57,6 +57,11 @@
 					icon: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`
 				},
 				{
+					name: 'Pegawai Non-Aktif',
+					path: '/pegawai-nonaktif',
+					icon: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" x2="22" y1="11" y2="11"/></svg>`
+				},
+				{
 					name: 'Catatan & Memo',
 					path: '/catatan',
 					icon: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>`
@@ -72,19 +77,14 @@
 					icon: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="m14 12 2 2 4-4"/></svg>`
 				},
 				{
-					name: 'Manajemen Pensiun',
-					path: '/pensiun',
-					icon: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>`
-				}
-			]
-		},
-		{
-			category: 'DATA MATCHING',
-			items: [
+					name: 'Peremajaan Data Induk',
+					path: '/peremajaan-data-induk',
+					icon: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h.01"/><path d="M11 7h6"/><path d="M11 11h6"/><path d="M7 11h.01"/><path d="M7 15h10"/></svg>`
+				},
 				{
-					name: 'Lokal & SIASN',
-					path: '/data-matching/lokal-siasn',
-					icon: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg>`
+					name: 'Pemberhentian',
+					path: '/pemberhentian',
+					icon: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>`
 				}
 			]
 		},
@@ -100,6 +100,16 @@
 						{ name: 'Statistik Kepegawaian', path: '/laporan/statistik' },
 						{ name: 'Estimasi Pensiun (BUP)', path: '/laporan/pensiun' }
 					]
+				}
+			]
+		},
+		{
+			category: 'DATA MATCHING',
+			items: [
+				{
+					name: 'Lokal & SIASN',
+					path: '/data-matching/lokal-siasn',
+					icon: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg>`
 				}
 			]
 		},
@@ -136,6 +146,16 @@
 							]
 						}
 					]
+				}
+			]
+		},
+		{
+			category: 'TOOLS',
+			items: [
+				{
+					name: 'Utilitas Dokumen PDF',
+					path: '/utilitas-pdf',
+					icon: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>`
 				}
 			]
 		}
@@ -342,7 +362,7 @@
 								{@html item.icon}
 							</span>
 							{#if !isCollapsedDesktop}
-								<span class="truncate">{item.name}</span>
+								<span class="flex-1 text-left leading-snug whitespace-normal">{item.name}</span>
 							{/if}
 							{#if $page.url.pathname === item.path && !isCollapsedDesktop}
 								<div class="ml-auto w-2 h-2 rounded-full bg-white animate-pulse"></div>

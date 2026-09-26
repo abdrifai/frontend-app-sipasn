@@ -19,6 +19,7 @@
 		if (selectedType === 'pendidikan') return `Tingkat Pendidikan ${selectedItem.label}`;
 		if (selectedType === 'golongan') return `Golongan ${selectedItem.label}`;
 		if (selectedType === 'jabatan') return `Jenis Jabatan ${selectedItem.label}`;
+		if (selectedType === 'jenjang') return `Jenjang Jabatan ${selectedItem.label}`;
 		return selectedItem.label;
 	});
 	let modalSubtitle = $derived(selectedItem ? `${selectedItem.count.toLocaleString('id-ID')} Pegawai Aktif` : '');
@@ -30,24 +31,30 @@
 	let hasMoreEmp = $derived(empPage < totalEmpPages);
 
 	async function fetchEmployees(itemId, type, page = 1) {
+		if (loadingEmployees) return;
+		loadingEmployees = true;
 		if (page === 1) {
 			employeesList = [];
-			loadingEmployees = true;
+			empPage = 1;
 		}
 		empError = null;
 		try {
 			let url = `/pegawai/duk?page=${page}&limit=20`;
-			if (type === 'pendidikan') url += `&tktPend_id=${itemId}`;
-			if (type === 'golongan') url += `&gol_id=${itemId}`;
-			if (type === 'jabatan') url += `&jnsJab_id=${itemId}`;
+			const val = itemId !== null && itemId !== undefined ? itemId : 'null';
+			if (type === 'pendidikan') url += `&tktPend_id=${val}`;
+			if (type === 'golongan') url += `&gol_id=${val}`;
+			if (type === 'jabatan') url += `&jnsJab_id=${val}`;
+			if (type === 'jenjang') url += `&jenjang_jab_id=${val}`;
 			
 			const res = await api(url);
 			if (page === 1) {
 				employeesList = res.data.data;
 			} else {
-				employeesList = [...employeesList, ...res.data.data];
+				const existingIds = new Set(employeesList.map(e => e.id));
+				const uniqueNew = (res.data.data || []).filter(e => !existingIds.has(e.id));
+				employeesList = [...employeesList, ...uniqueNew];
 			}
-			totalEmpPages = res.data.stats.totalPages;
+			totalEmpPages = res.data.stats.totalPages || 1;
 			empPage = page;
 		} catch(err) {
 			empError = err.message;
@@ -57,9 +64,13 @@
 	}
 
 	function openModal(item, type) {
-		if (!item.id) return;
+		if (!item) return;
 		selectedItem = item;
 		selectedType = type;
+		employeesList = [];
+		empPage = 1;
+		totalEmpPages = 1;
+		loadingEmployees = false;
 		document.body.style.overflow = 'hidden';
 		fetchEmployees(item.id, type, 1);
 	}
@@ -67,6 +78,9 @@
 	function closeModal() {
 		selectedItem = null;
 		selectedType = null;
+		employeesList = [];
+		empPage = 1;
+		loadingEmployees = false;
 		document.body.style.overflow = '';
 	}
 
@@ -90,7 +104,8 @@
 	const tabs = [
 		{ id: 'golongan', label: 'Golongan Kepangkatan', icon: 'M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z' },
 		{ id: 'pendidikan', label: 'Tingkat Pendidikan', icon: 'M22 10v6M2 10l10-5 10 5-10 5z M6 12v5c3 3 10 3 12 0v-5' },
-		{ id: 'jabatan', label: 'Jenis Jabatan', icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75' }
+		{ id: 'jabatan', label: 'Jenis Jabatan', icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75' },
+		{ id: 'jenjang', label: 'Jenjang Jabatan', icon: 'M12 2L2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5' }
 	];
 </script>
 
@@ -105,7 +120,7 @@
 				<h1 class="text-2xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">Statistik Kepegawaian</h1>
 			</div>
 			<p class="text-zinc-500 dark:text-zinc-400 text-xs sm:text-sm font-medium mt-1">
-				Agregasi demografi ASN Pemerintah Kabupaten Tojo Una-Una berdasarkan jenis kelamin, golongan, pendidikan, dan jenis jabatan
+				Agregasi demografi ASN Pemerintah Kabupaten Tojo Una-Una berdasarkan jenis kelamin, golongan, pendidikan, jenis jabatan, dan jenjang jabatan
 			</p>
 		</div>
 
@@ -410,6 +425,80 @@
 											<button
 												type="button"
 												onclick={() => openModal(jab, 'jabatan')}
+												class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-xs font-bold transition-colors cursor-pointer"
+											>
+												Daftar
+												<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+											</button>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+							<tfoot class="bg-zinc-50/90 dark:bg-zinc-800/80 border-t-2 border-zinc-200 dark:border-zinc-700 font-bold text-xs text-zinc-900 dark:text-zinc-100">
+								<tr>
+									<td colspan="2" class="px-5 py-3.5 text-right uppercase tracking-wider">Total Keseluruhan:</td>
+									<td class="px-5 py-3.5 font-black text-sm text-indigo-600 dark:text-indigo-400">
+										{stats.total.toLocaleString('id-ID')} Pegawai
+									</td>
+									<td class="px-5 py-3.5 text-center font-black">100%</td>
+									<td></td>
+								</tr>
+							</tfoot>
+						</table>
+					</div>
+				</div>
+
+			<!-- Tabel: Jenjang Jabatan -->
+			{:else if activeTab === 'jenjang'}
+				<div class="space-y-3" in:fade={{ duration: 150 }}>
+					<div class="overflow-x-auto rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 shadow-sm relative">
+						<table class="w-full text-left text-xs sm:text-sm">
+							<thead class="bg-zinc-50/80 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[10px] border-b border-zinc-200/80 dark:border-zinc-800">
+								<tr>
+									<th class="px-5 py-4 w-12 text-center">No</th>
+									<th class="px-5 py-4">Jenjang Jabatan</th>
+									<th class="px-5 py-4 w-80">Jumlah Pegawai</th>
+									<th class="px-5 py-4 text-center w-28">Persentase</th>
+									<th class="px-5 py-4 text-center w-28">Aksi</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+								{#each (stats.byJenjangJabatan || []) as jnj, idx}
+									{@const maxJnj = Math.max(...(stats.byJenjangJabatan || []).map(j => j.count))}
+									{@const isMax = jnj.count === maxJnj}
+									{@const pct = stats.total > 0 ? (jnj.count / stats.total * 100).toFixed(1) : '0'}
+									<tr class="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/30 transition-colors">
+										<td class="px-5 py-3.5 text-center font-mono text-xs text-zinc-400">
+											{idx + 1}
+										</td>
+										<td class="px-5 py-3.5">
+											<div class="flex items-center gap-2">
+												<span class="font-bold text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm">{jnj.label}</span>
+												{#if isMax}
+													<span class="px-1.5 py-0.5 rounded bg-indigo-600 text-[9px] font-black text-white uppercase">Terbanyak</span>
+												{/if}
+											</div>
+										</td>
+										<td class="px-5 py-3.5">
+											<div class="flex items-center gap-3">
+												<span class="text-sm font-black text-zinc-900 dark:text-zinc-50 tabular-nums w-12">
+													{jnj.count.toLocaleString('id-ID')}
+												</span>
+												<div class="flex-1 h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+													<div
+														class="h-full rounded-full bg-indigo-600 transition-all duration-500"
+														style="width: {maxJnj > 0 ? (jnj.count / maxJnj * 100) : 0}%"
+													></div>
+												</div>
+											</div>
+										</td>
+										<td class="px-5 py-3.5 text-center font-semibold text-zinc-600 dark:text-zinc-400 tabular-nums">
+											{pct}%
+										</td>
+										<td class="px-5 py-3.5 text-center whitespace-nowrap">
+											<button
+												type="button"
+												onclick={() => openModal(jnj, 'jenjang')}
 												class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-xs font-bold transition-colors cursor-pointer"
 											>
 												Daftar
