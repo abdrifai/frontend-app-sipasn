@@ -16,7 +16,6 @@
 	} = $props();
 
 	let search = $state('');
-	const selectedStatus = 'aktif';
 	let pegawai = $state([]);
 	let loading = $state(false);
 	let error = $state(null);
@@ -62,7 +61,7 @@
 				page: page.toString(),
 				limit: limit.toString(),
 				search: search.trim(),
-				status: selectedStatus
+				status: 'semua'
 			});
 			const res = await api(`/pegawai?${query.toString()}`);
 			pegawai = res.data || [];
@@ -108,7 +107,16 @@
 		if (inputRef) inputRef.focus();
 	}
 
+	function checkIsAktif(p) {
+		if (!p) return false;
+		if (p.is_aktif !== undefined) return Boolean(p.is_aktif);
+		if (p.status_pns) return !p.status_pns.toLowerCase().includes('non');
+		if (p.kedudukanPns_id) return [1, 7, 8, 10].includes(Number(p.kedudukanPns_id));
+		return true;
+	}
+
 	function handleSelect(p) {
+		if (!checkIsAktif(p)) return;
 		if (!p?.id) return;
 		onClose();
 		if (onSelect && typeof onSelect === 'function') {
@@ -131,6 +139,11 @@
 			loadPegawai();
 		}
 	}
+
+	const allRetired = $derived(
+		pegawai.length > 0 &&
+		pegawai.every((p) => !checkIsAktif(p))
+	);
 
 	const visiblePages = $derived.by(() => {
 		const pages = [];
@@ -175,9 +188,6 @@
 						<h3 class="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100">
 							Cari Data Pegawai
 						</h3>
-						<span class="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/50">
-							Aktif
-						</span>
 					</div>
 
 					<button 
@@ -233,18 +243,18 @@
 				</div>
 			</div>
 
-			<!-- Modal Body: Results List / Table (Fixed Flexible Container) -->
-			<div class="flex-1 overflow-y-auto min-h-0">
+			<!-- Modal Body: Results List / Messages (Flex Column Container for perfect centering) -->
+			<div class="flex-1 overflow-y-auto min-h-0 flex flex-col">
 				{#if loading}
-					<div class="h-full flex items-center justify-center py-16">
+					<div class="flex-1 flex items-center justify-center p-6">
 						<LoadingState message="Mencari data pegawai..." />
 					</div>
 				{:else if error}
-					<div class="h-full flex items-center justify-center p-6">
+					<div class="flex-1 flex items-center justify-center p-6">
 						<ErrorState message={error} onRetry={loadPegawai} />
 					</div>
 				{:else if !hasSearched || !search.trim()}
-					<div class="h-full flex flex-col items-center justify-center gap-2 text-zinc-400 py-16 px-4 text-center">
+					<div class="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-400 p-6 text-center">
 						<div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center text-zinc-400 dark:text-zinc-500">
 							<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
 						</div>
@@ -252,54 +262,174 @@
 						<p class="text-[11px] text-zinc-400 max-w-xs">Ketik NIP atau Nama pegawai pada kolom di atas untuk menampilkan hasil pencarian.</p>
 					</div>
 				{:else if pegawai.length === 0}
-					<div class="h-full flex items-center justify-center py-16">
-						<EmptyState message={`Tidak ditemukan pegawai dengan kata kunci "${search}".`} />
+					<!-- 1. DATA TIDAK DITEMUKAN ATAU TIDAK ADA DALAM DATABASE (TEPAT DI TENGAH MODAL) -->
+					<div class="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto animate-in fade-in duration-200">
+						<div class="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center text-zinc-400 dark:text-zinc-500 mb-3 shadow-inner">
+							<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<circle cx="11" cy="11" r="8"/>
+								<path d="m21 21-4.3-4.3"/>
+								<line x1="8" y1="11" x2="14" y2="11"/>
+							</svg>
+						</div>
+						<h4 class="text-sm sm:text-base font-bold text-zinc-800 dark:text-zinc-200 mb-1.5">
+							Data Tidak Ditemukan atau Tidak Ada dalam Database
+						</h4>
+						<p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed mb-4 max-w-sm">
+							Data pegawai dengan kata kunci <span class="font-semibold text-zinc-800 dark:text-zinc-200">"{search}"</span> tidak ditemukan atau tidak ada dalam database sistem.
+						</p>
+						<div class="w-full text-left bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-700/60 rounded-xl p-3 text-xs text-zinc-600 dark:text-zinc-300 space-y-1">
+							<div class="font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
+								<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-500"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+								Petunjuk
+							</div>
+							<p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+								Pastikan NIP (18 digit tanpa spasi) atau ejaan Nama pegawai yang dimasukkan sudah benar dan terdaftar dalam database.
+							</p>
+						</div>
 					</div>
-				{:else}
-					<div class="divide-y divide-zinc-100 dark:divide-zinc-800/80">
-						{#each pegawai as p (p.id)}
-							<a 
-								href="/pegawai/{p.id}"
-								onclick={(e) => {
-									e.preventDefault();
-									handleSelect(p);
-								}}
-								class="w-full text-left p-3 sm:px-4 flex items-center justify-between gap-3 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30 cursor-pointer transition-colors group block"
-							>
-								<!-- Pegawai Info -->
-								<div class="flex items-center gap-3 min-w-0 flex-1">
+				{:else if allRetired}
+					<!-- 2. DATA DITEMUKAN TETAPI BERSTATUS PENSIUN (TEPAT DI TENGAH MODAL & TIDAK BISA DI-KLIK KE DETAIL) -->
+					<div class="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto animate-in fade-in duration-200">
+						<!-- Icon Pensiun -->
+						<div class="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200/80 dark:border-rose-800/60 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-4 shadow-sm">
+							<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<circle cx="12" cy="12" r="10"/>
+								<line x1="12" y1="8" x2="12" y2="12"/>
+								<line x1="12" y1="16" x2="12.01" y2="16"/>
+							</svg>
+						</div>
+
+						<h4 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-1.5">
+							Pegawai Telah Pensiun
+						</h4>
+						<p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed mb-4 max-w-sm">
+							Data pegawai ditemukan dalam database, namun pegawai yang bersangkutan telah berstatus pensiun.
+						</p>
+
+						<!-- Informasi Pegawai Pensiun (Statis / Tidak Bisa Di-Klik) -->
+						<div class="w-full bg-zinc-50 dark:bg-zinc-800/60 border border-rose-200/80 dark:border-rose-900/60 rounded-2xl p-4 text-left space-y-3 shadow-2xs select-none">
+							{#each pegawai as p (p.id)}
+								<div class="flex items-center gap-3">
 									<Avatar 
 										src={p.foto ? (p.foto.startsWith('http') ? p.foto : `${API_BASE}/${p.foto}`) : ''} 
 										name={p.nama} 
 										size="md" 
 									/>
 									<div class="min-w-0 flex-1 space-y-0.5">
-										<div class="flex flex-wrap items-center gap-2">
-											<p class="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-												{p.nama}
-											</p>
-											<span class="text-xs font-mono font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
-												{p.nip}
-											</span>
-											<Badge variant="indigo">{p.golongan}</Badge>
+										<div class="font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 truncate">
+											{p.nama}
 										</div>
-
-										<p class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 leading-snug break-words">
-											{p.jabatan}
-										</p>
-										{#if p.unit_kerja}
-											<p class="text-[11px] text-zinc-400 dark:text-zinc-500 leading-snug break-words mt-0.5">
-												{p.unit_kerja}
-											</p>
+										<div class="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+											NIP: {p.nip}
+										</div>
+										{#if p.unit_kerja && p.unit_kerja !== '-'}
+											<div class="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+												Unit Kerja Terakhir: {p.unit_kerja}
+											</div>
 										{/if}
 									</div>
+									<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50 shrink-0">
+										<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+										Pegawai telah pensiun
+									</span>
 								</div>
+							{/each}
+						</div>
+					</div>
+				{:else}
+					<div class="divide-y divide-zinc-100 dark:divide-zinc-800/80">
+						{#each pegawai as p (p.id)}
+							{@const isAktif = checkIsAktif(p)}
+							{#if isAktif}
+								<!-- Pegawai Aktif (Bisa Di-Klik) -->
+								<button 
+									type="button"
+									onclick={() => handleSelect(p)}
+									class="w-full text-left p-3 sm:px-4 flex items-center justify-between gap-3 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30 cursor-pointer transition-colors group"
+								>
+									<!-- Pegawai Info -->
+									<div class="flex items-center gap-3 min-w-0 flex-1">
+										<Avatar 
+											src={p.foto ? (p.foto.startsWith('http') ? p.foto : `${API_BASE}/${p.foto}`) : ''} 
+											name={p.nama} 
+											size="md" 
+										/>
+										<div class="min-w-0 flex-1 space-y-0.5">
+											<div class="flex flex-wrap items-center gap-2">
+												<p class="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+													{p.nama}
+												</p>
+												<span class="text-xs font-mono font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+													{p.nip}
+												</span>
+												{#if p.golongan && p.golongan !== '-'}
+													<Badge variant="indigo">{p.golongan}</Badge>
+												{/if}
+												<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40">
+													<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+													Aktif
+												</span>
+											</div>
 
-								<!-- Subtle Arrow Indicator on Hover -->
-								<div class="shrink-0 text-zinc-300 dark:text-zinc-600 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all">
-									<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+											<p class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 leading-snug break-words">
+												{p.jabatan}
+											</p>
+											{#if p.unit_kerja}
+												<p class="text-[11px] text-zinc-400 dark:text-zinc-500 leading-snug break-words mt-0.5">
+													{p.unit_kerja}
+												</p>
+											{/if}
+										</div>
+									</div>
+
+									<!-- Subtle Arrow Indicator on Hover -->
+									<div class="shrink-0 text-zinc-300 dark:text-zinc-600 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all">
+										<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+									</div>
+								</button>
+							{:else}
+								<!-- Pegawai Telah Pensiun dalam daftar campuran (TIDAK BISA DI-KLIK) -->
+								<div 
+									class="w-full text-left p-3 sm:px-4 flex items-center justify-between gap-3 bg-zinc-50/60 dark:bg-zinc-900/40 border-l-2 border-l-rose-500 opacity-80 cursor-not-allowed select-none pointer-events-none"
+									title="Pegawai telah pensiun dan tidak dapat dipilih"
+								>
+									<!-- Pegawai Info -->
+									<div class="flex items-center gap-3 min-w-0 flex-1">
+										<Avatar 
+											src={p.foto ? (p.foto.startsWith('http') ? p.foto : `${API_BASE}/${p.foto}`) : ''} 
+											name={p.nama} 
+											size="md" 
+										/>
+										<div class="min-w-0 flex-1 space-y-0.5">
+											<div class="flex flex-wrap items-center gap-2">
+												<p class="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300 truncate">
+													{p.nama}
+												</p>
+												<span class="text-xs font-mono font-medium text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+													{p.nip}
+												</span>
+												<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/40">
+													<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+													Pegawai telah pensiun
+												</span>
+											</div>
+
+											<p class="text-xs font-medium text-rose-600 dark:text-rose-400 leading-snug break-words">
+												Pegawai telah pensiun
+											</p>
+											{#if p.unit_kerja && p.unit_kerja !== '-'}
+												<p class="text-[11px] text-zinc-400 dark:text-zinc-500 leading-snug break-words mt-0.5">
+													Unit Kerja Terakhir: {p.unit_kerja}
+												</p>
+											{/if}
+										</div>
+									</div>
+
+									<span class="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 bg-zinc-200/60 dark:bg-zinc-800 px-2 py-1 rounded-md shrink-0">
+										Tidak dapat dipilih
+									</span>
 								</div>
-							</a>
+							{/if}
 						{/each}
 					</div>
 				{/if}
@@ -307,7 +437,15 @@
 
 			<!-- Modal Footer: Static Fixed Height Bar -->
 			<div class="h-12 px-3.5 sm:px-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/80 flex items-center justify-between gap-2.5 text-xs shrink-0">
-				{#if hasSearched && pegawai.length > 0}
+				{#if allRetired}
+					<div class="flex items-center justify-between w-full text-[11px] text-zinc-400">
+						<span class="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-semibold">
+							<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+							Status: Pegawai Pensiun
+						</span>
+						<span class="hidden sm:inline">Navigasi: <kbd class="px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded font-mono text-[10px]">Esc</kbd> Tutup</span>
+					</div>
+				{:else if hasSearched && pegawai.length > 0}
 					<p class="text-zinc-500 dark:text-zinc-400 text-[11px] truncate">
 						Menampilkan <strong class="text-zinc-700 dark:text-zinc-200">{(page - 1) * limit + 1}</strong> - <strong class="text-zinc-700 dark:text-zinc-200">{Math.min(page * limit, total)}</strong> dari <strong class="text-zinc-700 dark:text-zinc-200">{total.toLocaleString('id-ID')}</strong> pegawai
 					</p>

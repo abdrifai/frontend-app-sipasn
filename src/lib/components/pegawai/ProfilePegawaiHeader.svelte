@@ -117,7 +117,21 @@
 		'-'
 	);
 
-	const statusPns = $derived(pegawai?.status_pns || 'PNS Aktif');
+	const isAktifPns = $derived(
+		pegawai?.is_aktif_pns !== undefined
+			? Boolean(pegawai.is_aktif_pns)
+			: (pegawai?.status_pns
+				? pegawai.status_pns.toLowerCase().includes('aktif') && !pegawai.status_pns.toLowerCase().includes('non')
+				: (pegawai?.kedudukanPns_id ? [1, 7, 8, 10].includes(Number(pegawai.kedudukanPns_id)) : true))
+	);
+
+	const statusPns = $derived(
+		pegawai?.status_pns || (isAktifPns ? 'PNS Aktif' : 'PNS Non Aktif')
+	);
+
+	const statusKedudukan = $derived(
+		pegawai?.status_kedudukan || ''
+	);
 
 	function handleFileChange(e) {
 		const file = e.target.files?.[0];
@@ -251,10 +265,23 @@
 							Gol. {golongan}
 						</span>
 					{/if}
-					<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40">
-						<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-						{statusPns}
-					</span>
+					{#if isAktifPns}
+						<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40">
+							<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+							{statusPns}
+						</span>
+					{:else}
+						<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/40">
+							<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+							{statusPns}
+						</span>
+						{#if statusKedudukan && statusKedudukan !== statusPns && statusKedudukan !== 'Non Aktif' && statusKedudukan !== 'Aktif'}
+							<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40" title="Status Kedudukan">
+								<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+								{statusKedudukan}
+							</span>
+						{/if}
+					{/if}
 
 					{#if showFullProfileLink && pegawaiId}
 						<a 

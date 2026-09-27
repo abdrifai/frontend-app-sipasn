@@ -15,6 +15,7 @@
 	let loading = $state(true);
 	let error = $state(null);
 	let search = $state('');
+	let selectedStatus = $state('1');
 	let page = $state(1);
 	let meta = $state({ totalPages: 1 });
 
@@ -32,14 +33,16 @@
 	let formData = $state({
 		id: '',
 		kode: '',
-		jnsMutasi: ''
+		jnsMutasi: '',
+		is_aktif: 1
 	});
 
 	async function loadData() {
 		loading = true;
 		error = null;
 		try {
-			const res = await api(`/ref-jns-mutasi?search=${search}&page=${page}`);
+			const statusQuery = selectedStatus !== '' ? `&is_aktif=${selectedStatus}` : '';
+			const res = await api(`/ref-jns-mutasi?search=${encodeURIComponent(search)}&page=${page}${statusQuery}`);
 			data = res.data;
 			meta = res.meta;
 		} catch (err) {
@@ -72,7 +75,7 @@
 
 	function openCreate() {
 		isEditing = false;
-		formData = { id: '', kode: '', jnsMutasi: '' };
+		formData = { id: '', kode: '', jnsMutasi: '', is_aktif: 1 };
 		fieldErrors = {};
 		formError = null;
 		showModal = true;
@@ -83,7 +86,8 @@
 		formData = { 
 			id: item.id, 
 			kode: item.kode,
-			jnsMutasi: item.jnsMutasi 
+			jnsMutasi: item.jnsMutasi,
+			is_aktif: item.is_aktif !== undefined && item.is_aktif !== null ? Number(item.is_aktif) : 1
 		};
 		fieldErrors = {};
 		formError = null;
@@ -97,7 +101,8 @@
 		try {
 			const payload = {
 				kode: parseInt(formData.kode),
-				jnsMutasi: formData.jnsMutasi
+				jnsMutasi: formData.jnsMutasi,
+				is_aktif: formData.is_aktif !== undefined ? parseInt(formData.is_aktif) : 1
 			};
 
 			if (isEditing) {
@@ -167,7 +172,7 @@
 		</div>
 
 		<Card>
-			<div class="flex gap-2 mb-6">
+			<div class="flex flex-col sm:flex-row gap-2 mb-6">
 				<div class="relative flex-1">
 					<span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">
 						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -180,6 +185,15 @@
 						onkeydown={(e) => e.key === 'Enter' && handleSearch()}
 					/>
 				</div>
+				<select
+					bind:value={selectedStatus}
+					onchange={() => { page = 1; loadData(); }}
+					class="px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm outline-none font-medium text-zinc-700 dark:text-zinc-300"
+				>
+					<option value="">Semua Status</option>
+					<option value="1">Aktif</option>
+					<option value="0">Non-Aktif</option>
+				</select>
 				<Button variant="secondary" onclick={handleSearch}>Cari</Button>
 			</div>
 
@@ -196,7 +210,8 @@
 							<tr>
 								<th class="px-4 py-3 w-16">Kode</th>
 								<th class="px-4 py-3">Jenis Mutasi</th>
-								<th class="px-4 py-3 text-right">Aksi</th>
+								<th class="px-4 py-3 text-center w-32">Status</th>
+								<th class="px-4 py-3 text-right w-24">Aksi</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -204,16 +219,22 @@
 								<tr class="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
 									<td class="px-4 py-4 text-zinc-500 dark:text-zinc-400 font-mono text-xs">{item.kode}</td>
 									<td class="px-4 py-4 font-medium text-zinc-900 dark:text-zinc-100">{item.jnsMutasi}</td>
+									<td class="px-4 py-4 text-center">
+										<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold {item.is_aktif === 1 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80' : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/80'}">
+											<span class="w-1.5 h-1.5 rounded-full {item.is_aktif === 1 ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+											{item.is_aktif === 1 ? 'Aktif' : 'Non-Aktif'}
+										</span>
+									</td>
 									<td class="px-4 py-4 text-right space-x-2">
 										<button
-											class="text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+											class="text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
 											onclick={() => openEdit(item)}
 											aria-label="Ubah"
 										>
 											<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
 										</button>
 										<button
-											class="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+											class="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
 											onclick={() => handleDelete(item)}
 											aria-label="Hapus"
 										>
@@ -284,6 +305,35 @@
 					error={fieldErrors.jnsMutasi}
 					required
 				/>
+
+				<!-- Status Aktif Switch -->
+				<div class="space-y-1.5 pt-1">
+					<label for="status-aktif-switch" class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block">
+						Status Aktif
+					</label>
+					<div class="flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/50">
+						<div class="space-y-0.5">
+							<span class="text-xs font-bold {formData.is_aktif === 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+								{formData.is_aktif === 1 ? 'Status: Aktif' : 'Status: Non-Aktif'}
+							</span>
+							<p class="text-[11px] text-zinc-400">
+								{formData.is_aktif === 1 ? 'Dapat dipilih saat proses mutasi kepegawaian' : 'Disembunyikan dari pilihan mutasi'}
+							</p>
+						</div>
+						<button
+							id="status-aktif-switch"
+							type="button"
+							role="switch"
+							aria-checked={formData.is_aktif === 1}
+							onclick={() => formData.is_aktif = formData.is_aktif === 1 ? 0 : 1}
+							class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {formData.is_aktif === 1 ? 'bg-emerald-500' : 'bg-rose-400'}"
+						>
+							<span
+								class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out {formData.is_aktif === 1 ? 'translate-x-5' : 'translate-x-0'}"
+							></span>
+						</button>
+					</div>
+				</div>
 			</div>
 
 			<div class="px-6 py-4 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-3">

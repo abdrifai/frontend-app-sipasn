@@ -52,6 +52,11 @@
 	let deleteLoading = $state(false);
 	let submitting = $state(false);
 
+	// Edit Mode State
+	let isEditing = $state(false);
+	let editingId = $state(null);
+	let existingFileSk = $state(null);
+
 	// Selected Pegawai & Form State
 	let selectedPegawai = $state(null);
 	let form = $state({
@@ -183,7 +188,20 @@
 		}, 300);
 	}
 
+	function formatDateForInput(dateVal) {
+		if (!dateVal) return '';
+		const d = new Date(dateVal);
+		if (isNaN(d.getTime())) return '';
+		const year = d.getFullYear();
+		const month = String(d.getMonth() + 1).padStart(2, '0');
+		const day = String(d.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
+
 	function openCreateProcess() {
+		isEditing = false;
+		editingId = null;
+		existingFileSk = null;
 		selectedPegawai = null;
 		form = {
 			pegawai_id: '',
@@ -192,6 +210,31 @@
 			tgl_sk: '',
 			tmt_pensiun: '',
 			ket: ''
+		};
+		selectedFileSK = null;
+		fieldErrors = {};
+		showProcessModal = true;
+	}
+
+	function openEditProcess(item) {
+		isEditing = true;
+		editingId = item.id;
+		existingFileSk = item.file_sk || null;
+		selectedPegawai = {
+			id: item.pegawai_id,
+			nama: item.pegawai?.nama || '-',
+			nipBaru: item.pegawai?.nipBaru || '-',
+			foto: item.pegawai?.foto || null,
+			jabatan: item.pegawai?.jabatan || '-',
+			unor: item.pegawai?.unor || '-'
+		};
+		form = {
+			pegawai_id: item.pegawai_id,
+			kedudukanpns_id: item.kedudukanpns_id ? item.kedudukanpns_id.toString() : (kedudukanOptions.length > 0 ? kedudukanOptions[0].id.toString() : '2'),
+			no_sk: item.no_sk || '',
+			tgl_sk: formatDateForInput(item.tgl_sk),
+			tmt_pensiun: formatDateForInput(item.tmt_pensiun),
+			ket: item.ket || ''
 		};
 		selectedFileSK = null;
 		fieldErrors = {};
@@ -233,7 +276,7 @@
 	}
 
 	async function handleSubmitProcess() {
-		if (!form.pegawai_id) {
+		if (!form.pegawai_id && !isEditing) {
 			toast.error('Silakan pilih pegawai yang akan diproses pemberhentian');
 			return;
 		}
@@ -248,20 +291,27 @@
 
 		try {
 			const formData = new FormData();
-			formData.append('pegawai_id', form.pegawai_id);
+			if (!isEditing) {
+				formData.append('pegawai_id', form.pegawai_id);
+			}
 			formData.append('kedudukanpns_id', form.kedudukanpns_id);
-			if (form.no_sk) formData.append('no_sk', form.no_sk);
+			if (form.no_sk !== undefined) formData.append('no_sk', form.no_sk);
 			if (form.tgl_sk) formData.append('tgl_sk', form.tgl_sk);
 			if (form.tmt_pensiun) formData.append('tmt_pensiun', form.tmt_pensiun);
-			if (form.ket) formData.append('ket', form.ket);
+			if (form.ket !== undefined) formData.append('ket', form.ket);
 
 			if (selectedFileSK) {
 				formData.append('file_sk', selectedFileSK);
 			}
 
 			const BASE_URL = import.meta.env.VITE_API_URL;
-			const res = await fetch(`${BASE_URL}/pemberhentian`, {
-				method: 'POST',
+			const url = isEditing
+				? `${BASE_URL}/pemberhentian/${editingId}`
+				: `${BASE_URL}/pemberhentian`;
+			const method = isEditing ? 'PUT' : 'POST';
+
+			const res = await fetch(url, {
+				method,
 				body: formData,
 				credentials: 'include'
 			});
@@ -274,10 +324,10 @@
 						return acc;
 					}, {});
 				}
-				throw new Error(data.message || 'Gagal menyimpan penetapan pemberhentian');
+				throw new Error(data.message || (isEditing ? 'Gagal memperbarui penetapan pemberhentian' : 'Gagal menyimpan penetapan pemberhentian'));
 			}
 
-			toast.success('Penetapan pemberhentian pegawai berhasil disimpan');
+			toast.success(isEditing ? 'Data penetapan pemberhentian pegawai berhasil diperbarui' : 'Penetapan pemberhentian pegawai berhasil disimpan');
 			showProcessModal = false;
 			await loadData();
 		} catch (err) {
@@ -558,13 +608,24 @@
 
 								<!-- Aksi -->
 								<td class="py-3.5 px-4 text-right">
-									<button
-										onclick={() => confirmDelete(item)}
-										class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
-										title="Batalkan / Hapus Pensiun"
-									>
-										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-									</button>
+									<div class="flex items-center justify-end gap-1">
+										<button
+											type="button"
+											onclick={() => openEditProcess(item)}
+											class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 transition-colors cursor-pointer"
+											title="Edit Data Pemberhentian"
+										>
+											<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+										</button>
+										<button
+											type="button"
+											onclick={() => confirmDelete(item)}
+											class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+											title="Batalkan / Hapus Pensiun"
+										>
+											<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+										</button>
+									</div>
 								</td>
 							</tr>
 						{/each}
@@ -695,8 +756,12 @@
 			<!-- Header -->
 			<div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-950/50">
 				<div>
-					<h2 class="text-base font-bold text-zinc-900 dark:text-zinc-50">Form Penetapan Pemberhentian Pegawai</h2>
-					<p class="text-xs text-zinc-500">Ubah status kedudukan pegawai dari Aktif menjadi Pensiun / Pemberhentian / Pindah Keluar & lampirkan SK.</p>
+					<h2 class="text-base font-bold text-zinc-900 dark:text-zinc-50">
+						{isEditing ? 'Edit Data Penetapan Pemberhentian Pegawai' : 'Form Penetapan Pemberhentian Pegawai'}
+					</h2>
+					<p class="text-xs text-zinc-500">
+						{isEditing ? 'Perbarui informasi penetapan pemberhentian, nomor SK, tanggal berlaku, atau dokumen SK.' : 'Ubah status kedudukan pegawai dari Aktif menjadi Pensiun / Pemberhentian / Pindah Keluar & lampirkan SK.'}
+					</p>
 				</div>
 				<button onclick={() => showProcessModal = false} class="text-zinc-400 hover:text-zinc-600 p-1.5 rounded-xl hover:bg-zinc-200/60 dark:hover:bg-zinc-800">
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -725,9 +790,15 @@
 									<p class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium mt-0.5">{selectedPegawai.jabatan} — {selectedPegawai.unor}</p>
 								</div>
 							</div>
-							<Button variant="ghost" onclick={() => showSearchPegawaiModal = true} class="text-xs">
-								Ganti Pegawai
-							</Button>
+							{#if !isEditing}
+								<Button variant="ghost" onclick={() => showSearchPegawaiModal = true} class="text-xs">
+									Ganti Pegawai
+								</Button>
+							{:else}
+								<span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">
+									Pegawai Terpilih
+								</span>
+							{/if}
 						</div>
 					{:else}
 						<button
@@ -790,6 +861,23 @@
 							<label for="file_sk" class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block">
 								File Dokumen SK (PDF)
 							</label>
+							{#if isEditing && existingFileSk}
+								<div class="mb-2 p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+									<div class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+										<svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+										<span class="truncate text-[11px] font-medium">Dokumen SK saat ini sudah tersimpan</span>
+									</div>
+									<a
+										href={getFileUrl(existingFileSk)}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 underline inline-flex items-center gap-1 shrink-0 ml-2"
+									>
+										Lihat File
+										<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+									</a>
+								</div>
+							{/if}
 							<input
 								id="file_sk"
 								type="file"
@@ -797,7 +885,9 @@
 								onchange={handleFileChange}
 								class="w-full text-xs text-zinc-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
 							/>
-							<p class="text-[10px] text-zinc-400">Format PDF, maksimal 5MB</p>
+							<p class="text-[10px] text-zinc-400">
+								{isEditing ? 'Format PDF, maks 5MB. Unggah file baru hanya jika ingin mengganti SK lama.' : 'Format PDF, maksimal 5MB'}
+							</p>
 						</div>
 					</div>
 
@@ -820,7 +910,7 @@
 			<div class="px-6 py-4 bg-zinc-50/50 dark:bg-zinc-950/50 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-3">
 				<Button variant="ghost" onclick={() => showProcessModal = false} disabled={submitting}>Batal</Button>
 				<Button variant="primary" onclick={handleSubmitProcess} loading={submitting} disabled={!selectedPegawai}>
-					Simpan & Tetapkan Pemberhentian
+					{isEditing ? 'Simpan Perubahan' : 'Simpan & Tetapkan Pemberhentian'}
 				</Button>
 			</div>
 		</div>
