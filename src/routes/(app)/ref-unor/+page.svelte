@@ -518,9 +518,28 @@
 		}
 	}
 
+	function handleJenjangJabChange() {
+		const num = Number(form.jenjang_jab_id);
+		if ([1, 2, 6, 7, 8].includes(num)) {
+			form.kategori_jab = 'STRUKTURAL';
+			if (num === 8) {
+				form.bup = 60;
+			}
+		} else if ([4, 5].includes(num)) {
+			form.kategori_jab = 'FUNGSIONAL';
+			form.eselon_id = '';
+			form.bup = 60;
+		} else if (num === 3) {
+			form.kategori_jab = 'PELAKSANA';
+			form.eselon_id = '';
+			form.bup = 58;
+		}
+	}
+
 	function handleEselonChange() {
 		const selectedEselon = eselonOptions.find(e => e.id === form.eselon_id);
 		if (selectedEselon) {
+			form.kategori_jab = 'STRUKTURAL';
 			const eselonName = (selectedEselon.eselon || '').toUpperCase();
 			if (eselonName.startsWith('I.') || eselonName.startsWith('II.')) {
 				form.bup = 60;
@@ -528,13 +547,13 @@
 					const name = (j.jnsjab || '').toUpperCase();
 					return name.includes('PIMPINAN TINGGI') || name.includes('JPT');
 				});
-				if (jptOpt && form.kategori_jab === 'STRUKTURAL') {
+				if (jptOpt) {
 					form.jns_jab_id = jptOpt.id;
 				}
 			} else {
 				form.bup = 58;
 				const strukOpt = jenisJabatanOptions.find(j => (j.jnsjab || '').toUpperCase() === 'STRUKTURAL');
-				if (strukOpt && form.kategori_jab === 'STRUKTURAL') {
+				if (strukOpt) {
 					form.jns_jab_id = strukOpt.id;
 				}
 			}
@@ -1489,6 +1508,7 @@
 									<select
 										id="jns_jab"
 										bind:value={form.jns_jab_id}
+										onchange={handleJnsJabChange}
 										class="w-full bg-zinc-50/80 dark:bg-zinc-950 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium outline-none transition-all duration-200 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-400 text-zinc-900 dark:text-zinc-100"
 									>
 										<option value="">Pilih Jenis Jabatan</option>
@@ -1505,6 +1525,7 @@
 									<select
 										id="jenjang_jab"
 										bind:value={form.jenjang_jab_id}
+										onchange={handleJenjangJabChange}
 										class="w-full bg-zinc-50/80 dark:bg-zinc-950 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium outline-none transition-all duration-200 focus:bg-white dark:focus:bg-zinc-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-400 text-zinc-900 dark:text-zinc-100"
 									>
 										<option value="">Pilih Jenjang Jabatan</option>

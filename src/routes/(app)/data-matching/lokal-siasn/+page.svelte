@@ -22,13 +22,26 @@
 		only_local_count: 0,
 		only_siasn_count: 0,
 		mismatch_breakdown: {
-			golongan: 0,
-			jabatan: 0,
-			unor: 0,
 			nama: 0,
-			kedudukan: 0
+			status_kepegawaian: 0,
+			golongan: 0,
+			pendidikan: 0,
+			jabatan: 0,
+			unit_kerja: 0
 		}
 	});
+
+	// Label Tipe Mismatch
+	const mismatchLabels = {
+		nama: 'Nama',
+		status_kepegawaian: 'Status PNS/CPNS',
+		golongan: 'Golongan',
+		pendidikan: 'Pendidikan',
+		jabatan: 'Jabatan',
+		unit_kerja: 'Unit Kerja',
+		unor: 'Unit Kerja',
+		status_pns: 'Status PNS/CPNS'
+	};
 
 	// State Pagination & Filter
 	let page = $state(1);
@@ -36,7 +49,7 @@
 	let totalPages = $state(1);
 	let total = $state(0);
 	let activeTab = $state('all'); // 'all' | 'match' | 'mismatch' | 'only_local' | 'only_siasn'
-	let selectedMismatchType = $state('all'); // 'all' | 'golongan' | 'jabatan' | 'unor' | 'nama' | 'kedudukan'
+	let selectedMismatchType = $state('all'); // 'all' | 'nama' | 'status_kepegawaian' | 'golongan' | 'pendidikan' | 'jabatan' | 'unit_kerja'
 	let searchQuery = $state('');
 	let debounceTimer = null;
 
@@ -208,7 +221,7 @@
 				<span>Data Matching: Database Lokal vs SIASN BKN</span>
 			</h1>
 			<p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-2xl">
-				Pencocokan, verifikasi integritas, dan analisis diskrepansi data PNS antara SIPASN Daerah dan data import SIASN BKN.
+				Pencocokan dan perbandingan 6 atribut utama: <strong>Nama, Status Kepegawaian (PNS/CPNS), Golongan, Pendidikan, Jabatan, dan Unit Kerja</strong> antara Database Lokal SIPASN dan SIASN BKN.
 			</p>
 		</div>
 
@@ -275,7 +288,7 @@
 			</div>
 			<div>
 				<div class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.match_count.toLocaleString()}</div>
-				<p class="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">Semua atribut selaras</p>
+				<p class="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">Seluruh 6 atribut selaras</p>
 			</div>
 		</div>
 
@@ -289,7 +302,7 @@
 			</div>
 			<div>
 				<div class="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.mismatch_count.toLocaleString()}</div>
-				<p class="text-[10px] text-amber-600/70 dark:text-amber-400/70 mt-0.5">Terdapat perbedaan data</p>
+				<p class="text-[10px] text-amber-600/70 dark:text-amber-400/70 mt-0.5">Ada perbedaan di 6 atribut</p>
 			</div>
 		</div>
 
@@ -397,13 +410,13 @@
 						type="text"
 						value={searchQuery}
 						oninput={handleSearchInput}
-						placeholder="Cari NIP, Nama Pegawai, atau Unit Kerja..."
+						placeholder="Cari NIP, Nama, Golongan, Jabatan, Unit Kerja, atau Pendidikan..."
 						class="w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-9.5 pr-4 py-2 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-zinc-400"
 					/>
 				</div>
 
 				<div class="flex items-center gap-2.5">
-					<!-- Filter Spesifik Tipe Mismatch (Hanya aktif jika tab mismatch atau all) -->
+					<!-- Filter Spesifik Tipe Mismatch dari 6 Atribut Utama -->
 					{#if activeTab === 'all' || activeTab === 'mismatch'}
 						<select
 							value={selectedMismatchType}
@@ -411,11 +424,12 @@
 							class="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
 						>
 							<option value="all">Semua Tipe Selisih</option>
+							<option value="nama">Beda Nama ({stats.mismatch_breakdown?.nama || 0})</option>
+							<option value="status_kepegawaian">Beda Status PNS/CPNS ({stats.mismatch_breakdown?.status_kepegawaian || 0})</option>
 							<option value="golongan">Beda Golongan ({stats.mismatch_breakdown?.golongan || 0})</option>
+							<option value="pendidikan">Beda Pendidikan ({stats.mismatch_breakdown?.pendidikan || 0})</option>
 							<option value="jabatan">Beda Jabatan ({stats.mismatch_breakdown?.jabatan || 0})</option>
-							<option value="unor">Beda Unit Kerja ({stats.mismatch_breakdown?.unor || 0})</option>
-							<option value="nama">Beda Nama/Gelar ({stats.mismatch_breakdown?.nama || 0})</option>
-							<option value="kedudukan">Beda Kedudukan ({stats.mismatch_breakdown?.kedudukan || 0})</option>
+							<option value="unit_kerja">Beda Unit Kerja ({stats.mismatch_breakdown?.unit_kerja || 0})</option>
 						</select>
 					{/if}
 
@@ -451,13 +465,15 @@
 				<table class="w-full text-left border-collapse text-xs">
 					<thead>
 						<tr class="bg-zinc-50/80 dark:bg-zinc-800/50 border-b border-zinc-200/80 dark:border-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
-							<th class="py-3 px-3.5 w-12 text-center">No</th>
-							<th class="py-3 px-3.5 min-w-[220px]">Pegawai</th>
-							<th class="py-3 px-3.5 min-w-[140px]">Golongan</th>
-							<th class="py-3 px-3.5 min-w-[200px]">Jabatan</th>
-							<th class="py-3 px-3.5 min-w-[200px]">Unit Organisasi (OPD)</th>
-							<th class="py-3 px-3.5 min-w-[130px] text-center">Status Matching</th>
-							<th class="py-3 px-3.5 w-20 text-center">Aksi</th>
+							<th class="py-3 px-3 w-10 text-center">No</th>
+							<th class="py-3 px-3 min-w-[200px]">Pegawai</th>
+							<th class="py-3 px-3 min-w-[120px]">Status</th>
+							<th class="py-3 px-3 min-w-[110px]">Golongan</th>
+							<th class="py-3 px-3 min-w-[170px]">Pendidikan</th>
+							<th class="py-3 px-3 min-w-[170px]">Jabatan</th>
+							<th class="py-3 px-3 min-w-[170px]">Unit Kerja</th>
+							<th class="py-3 px-3 min-w-[130px] text-center">Status Matching</th>
+							<th class="py-3 px-3 w-14 text-center">Aksi</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/60 font-normal">
@@ -470,12 +486,12 @@
 
 							<tr class="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40 transition-colors group">
 								<!-- No -->
-								<td class="py-3 px-3.5 text-center text-zinc-400 font-mono">
+								<td class="py-3 px-3 text-center text-zinc-400 font-mono">
 									{rowNum}
 								</td>
 
-								<!-- Pegawai: NIP & Nama (Lokal vs SIASN) -->
-								<td class="py-3 px-3.5 space-y-1">
+								<!-- 1. Pegawai: NIP & Nama (Lokal vs SIASN) -->
+								<td class="py-3 px-3 space-y-1">
 									<div class="font-mono font-bold text-zinc-900 dark:text-zinc-100 text-xs">
 										{r.nip}
 									</div>
@@ -495,8 +511,24 @@
 									</div>
 								</td>
 
-								<!-- Golongan (Lokal vs SIASN) -->
-								<td class="py-3 px-3.5 space-y-1">
+								<!-- 2. Status Kepegawaian (PNS / CPNS) -->
+								<td class="py-3 px-3 space-y-1">
+									<div class="flex items-center gap-1.5">
+										<span class="text-[10px] text-zinc-400">Lokal:</span>
+										<span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold {r.local?.status_kepegawaian === 'CPNS' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'}">
+											{r.local?.status_kepegawaian || '-'}
+										</span>
+									</div>
+									<div class="flex items-center gap-1.5">
+										<span class="text-[10px] text-zinc-400">SIASN:</span>
+										<span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold {r.mismatches.includes('status_kepegawaian') ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 ring-1 ring-rose-400' : (r.siasn?.status_kepegawaian === 'CPNS' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300')}">
+											{r.siasn?.status_kepegawaian || '-'}
+										</span>
+									</div>
+								</td>
+
+								<!-- 3. Golongan (Lokal vs SIASN) -->
+								<td class="py-3 px-3 space-y-1">
 									<div class="flex items-center gap-1.5">
 										<span class="text-[10px] text-zinc-400">Lokal:</span>
 										<span class="font-bold text-zinc-800 dark:text-zinc-200">
@@ -511,8 +543,22 @@
 									</div>
 								</td>
 
-								<!-- Jabatan (Lokal vs SIASN) -->
-								<td class="py-3 px-3.5 space-y-1">
+								<!-- 4. Pendidikan (Lokal vs SIASN) -->
+								<td class="py-3 px-3 space-y-1">
+									<div class="text-zinc-800 dark:text-zinc-200 font-medium">
+										<span class="text-[10px] text-zinc-400 block">Lokal:</span>
+										<span class="line-clamp-2">{r.local?.pendidikan || '-'}</span>
+									</div>
+									<div class="text-zinc-500 dark:text-zinc-400">
+										<span class="text-[10px] text-zinc-400 block">SIASN:</span>
+										<span class="line-clamp-2 {r.mismatches.includes('pendidikan') ? 'text-amber-700 dark:text-amber-400 bg-amber-50/70 dark:bg-amber-950/40 px-1 rounded' : ''}">
+											{r.siasn?.pendidikan || '-'}
+										</span>
+									</div>
+								</td>
+
+								<!-- 5. Jabatan (Lokal vs SIASN) -->
+								<td class="py-3 px-3 space-y-1">
 									<div class="text-zinc-800 dark:text-zinc-200 font-medium">
 										<span class="text-[10px] text-zinc-400 block">Lokal:</span>
 										<span class="line-clamp-2">{r.local?.jabatan || '-'}</span>
@@ -525,22 +571,22 @@
 									</div>
 								</td>
 
-								<!-- Unit Organisasi (Lokal vs SIASN) -->
-								<td class="py-3 px-3.5 space-y-1">
+								<!-- 6. Unit Kerja (Lokal vs SIASN) -->
+								<td class="py-3 px-3 space-y-1">
 									<div class="text-zinc-800 dark:text-zinc-200 font-medium">
 										<span class="text-[10px] text-zinc-400 block">Lokal:</span>
-										<span class="line-clamp-2">{r.local?.unor || '-'}</span>
+										<span class="line-clamp-2">{r.local?.unit_kerja || r.local?.unor || '-'}</span>
 									</div>
 									<div class="text-zinc-500 dark:text-zinc-400">
 										<span class="text-[10px] text-zinc-400 block">SIASN:</span>
-										<span class="line-clamp-2 {r.mismatches.includes('unor') ? 'text-amber-700 dark:text-amber-400 bg-amber-50/70 dark:bg-amber-950/40 px-1 rounded' : ''}">
-											{r.siasn?.unor || '-'}
+										<span class="line-clamp-2 {r.mismatches.includes('unit_kerja') ? 'text-amber-700 dark:text-amber-400 bg-amber-50/70 dark:bg-amber-950/40 px-1 rounded' : ''}">
+											{r.siasn?.unit_kerja || r.siasn?.unor || '-'}
 										</span>
 									</div>
 								</td>
 
 								<!-- Status Matching -->
-								<td class="py-3 px-3.5 text-center">
+								<td class="py-3 px-3 text-center">
 									{#if isMatch}
 										<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80">
 											<svg class="w-3 h-3 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
@@ -552,10 +598,10 @@
 												<svg class="w-2.5 h-2.5 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
 												Selisih ({r.mismatches.length})
 											</span>
-											<div class="flex flex-wrap justify-center gap-0.5 max-w-[140px]">
+											<div class="flex flex-wrap justify-center gap-0.5 max-w-[150px]">
 												{#each r.mismatches as m}
 													<span class="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-														{m}
+														{mismatchLabels[m] || m}
 													</span>
 												{/each}
 											</div>
@@ -572,7 +618,7 @@
 								</td>
 
 								<!-- Aksi -->
-								<td class="py-3 px-3.5 text-center">
+								<td class="py-3 px-3 text-center">
 									<button
 										type="button"
 										onclick={() => openDetailModal(r.nip)}
@@ -668,7 +714,7 @@
 							{/if}
 						</h3>
 						<p class="text-xs text-zinc-500 dark:text-zinc-400">
-							Perbandingan seluruh atribut data database lokal SIPASN vs SIASN BKN
+							Perbandingan 6 atribut data kepegawaian antara Database Lokal SIPASN vs SIASN BKN
 						</p>
 					</div>
 				</div>

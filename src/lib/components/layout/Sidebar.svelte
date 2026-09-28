@@ -142,7 +142,8 @@
 								{ name: 'Jenis Mutasi', path: '/ref-jns-mutasi' },
 								{ name: 'Jenis Hukuman', path: '/ref-jns-hukuman' },
 								{ name: 'Unit Organisasi (OPD)', path: '/ref-unor' },
-								{ name: 'Jenis Unit Organisasi', path: '/ref-jns-unor' }
+								{ name: 'Jenis Unit Organisasi', path: '/ref-jns-unor' },
+								{ name: 'Arsip Peraturan', path: '/ref-peraturan' }
 							]
 						}
 					]

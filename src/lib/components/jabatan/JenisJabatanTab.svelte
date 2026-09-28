@@ -16,7 +16,7 @@
 	let loading = $state(true);
 	let error = $state(null);
 	let search = $state('');
-	let selectedStatus = $state('');
+	let selectedStatus = $state('1');
 	let page = $state(1);
 	let meta = $state({ totalPages: 1 });
 
