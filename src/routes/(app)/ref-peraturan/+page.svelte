@@ -548,6 +548,7 @@
 						>
 							<option value="">Semua</option>
 							<option value="BERLAKU">Berlaku</option>
+							<option value="DIUBAH_OLEH">Diubah Oleh</option>
 							<option value="DICABUT">Dicabut</option>
 							<option value="MENGUBAH">Mengubah</option>
 						</select>
@@ -626,6 +627,18 @@
 													{formatRelasiText(item.tipe_relasi, item.peraturan_terkait || item.peraturan_terkait_ref?.nomor_peraturan)}
 												</span>
 											{/if}
+
+											<!-- Indikator Diubah / Dicabut Oleh Regulasi Lain -->
+											{#if item.direferensikan_oleh && item.direferensikan_oleh.length > 0}
+												{#each item.direferensikan_oleh as ref}
+													<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border {ref.tipe_relasi === 'MENCABUT' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border-rose-200 dark:border-rose-800' : 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border-blue-200 dark:border-blue-800'}">
+														<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+														</svg>
+														{ref.tipe_relasi === 'MENCABUT' ? 'Dicabut oleh:' : 'Diubah oleh:'} {ref.nomor_peraturan}
+													</span>
+												{/each}
+											{/if}
 										</div>
 
 										{#if item.tentang}
@@ -666,6 +679,11 @@
 											<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
 												<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
 												Berlaku
+											</span>
+										{:else if item.status_berlaku === 'DIUBAH_OLEH'}
+											<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+												<span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+												Diubah Oleh
 											</span>
 										{:else if item.status_berlaku === 'DICABUT'}
 											<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800">
@@ -905,6 +923,7 @@
 							class="w-full px-3 py-2 text-sm border rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none border-zinc-300 dark:border-zinc-700"
 						>
 							<option value="BERLAKU">Berlaku (Aktif)</option>
+							<option value="DIUBAH_OLEH">Diubah Oleh (Telah diubah peraturan lain)</option>
 							<option value="DICABUT">Dicabut / Tidak Berlaku</option>
 							<option value="MENGUBAH">Mengubah Peraturan Sebelumnya</option>
 						</select>
@@ -981,6 +1000,27 @@
 								placeholder="Cari peraturan yang diubah/dicabut (misal: Perbup No. 5 Tahun 2018)..."
 							/>
 						</div>
+
+						<!-- Banner Notifikasi Otomatis Sinkronisasi Status Target -->
+						{#if formData.peraturan_terkait_id && formData.tipe_relasi === 'MENGUBAH'}
+							<div class="mt-2.5 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+								</svg>
+								<span>
+									<strong>Sinkronisasi Otomatis:</strong> Peraturan target <strong class="text-blue-900 dark:text-blue-100">"{formData.peraturan_terkait || 'terpilih'}"</strong> akan secara otomatis diubah statusnya dari <strong>Berlaku</strong> menjadi <span class="font-bold underline decoration-blue-500">"Diubah Oleh"</span> saat disimpan.
+								</span>
+							</div>
+						{:else if formData.peraturan_terkait_id && formData.tipe_relasi === 'MENCABUT'}
+							<div class="mt-2.5 p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-xs text-red-700 dark:text-red-300 flex items-start gap-2">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+								</svg>
+								<span>
+									<strong>Sinkronisasi Otomatis:</strong> Peraturan target <strong class="text-red-900 dark:text-red-100">"{formData.peraturan_terkait || 'terpilih'}"</strong> akan secara otomatis diubah statusnya menjadi <span class="font-bold underline decoration-red-500">"Dicabut"</span> saat disimpan.
+								</span>
+							</div>
+						{/if}
 					</div>
 
 					<!-- Tentang / Ringkasan -->
