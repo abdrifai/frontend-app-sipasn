@@ -360,9 +360,12 @@
 
 	function getFileUrl(filePath) {
 		if (!filePath || typeof filePath !== 'string') return '';
-		const cleanPath = filePath.replace(/^\/+/, '').trim();
+		let cleanPath = filePath.replace(/^\/+/, '').trim();
 		if (!cleanPath) return '';
 		if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) return cleanPath;
+		if (!cleanPath.startsWith('storage/') && !cleanPath.startsWith('public/')) {
+			cleanPath = `storage/dokumen/${cleanPath}`;
+		}
 		return API_BASE ? `${API_BASE}/${cleanPath}` : `/${cleanPath}`;
 	}
 
@@ -390,14 +393,18 @@
 		try {
 			const directUrl = getFileUrl(item.file_sk);
 			const res = await fetch(directUrl, { credentials: 'include' });
-			if (!res.ok) throw new Error('Gagal memuat berkas PDF');
+			if (!res.ok) {
+				if (res.status === 404) {
+					toast.error('Berkas fisik SK belum tersedia di direktori penyimpanan server');
+				}
+				throw new Error('Gagal memuat berkas PDF');
+			}
 			const blob = await res.blob();
 			if (previewPdfUrl && previewPdfUrl.startsWith('blob:')) {
 				URL.revokeObjectURL(previewPdfUrl);
 			}
 			previewPdfUrl = URL.createObjectURL(blob);
-		} catch (err) {
-			console.error('PDF Blob conversion fallback:', err);
+		} catch {
 			previewPdfUrl = getFileUrl(item.file_sk);
 		} finally {
 			pdfLoading = false;

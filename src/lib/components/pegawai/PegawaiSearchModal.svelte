@@ -42,8 +42,15 @@
 		}
 	});
 
+	function isNipQuery(str) {
+		if (!str) return false;
+		const clean = str.trim().replace(/[\s.-]/g, '');
+		return clean.length > 0 && /^\d+$/.test(clean);
+	}
+
 	async function loadPegawai() {
-		if (!search.trim()) {
+		const trimmed = search.trim();
+		if (!trimmed) {
 			pegawai = [];
 			total = 0;
 			totalPages = 1;
@@ -57,14 +64,23 @@
 		hasSearched = true;
 
 		try {
+			const isNip = isNipQuery(trimmed);
+
 			const query = new URLSearchParams({
 				page: page.toString(),
 				limit: limit.toString(),
-				search: search.trim(),
-				status: 'semua'
+				search: trimmed,
+				// Pegawai non-aktif hanya boleh dicari dengan NIP.
+				// Pencarian nama hanya mencari dan menampilkan pegawai aktif.
+				status: isNip ? 'semua' : 'aktif'
 			});
 			const res = await api(`/pegawai?${query.toString()}`);
-			pegawai = res.data || [];
+			let data = res.data || [];
+			// Pengamanan sisi client: pastikan jika pencarian nama, data non-aktif tidak ditampilkan
+			if (!isNip) {
+				data = data.filter((p) => checkIsAktif(p));
+			}
+			pegawai = data;
 			totalPages = res.meta?.totalPages || 1;
 			total = res.meta?.total || 0;
 		} catch (err) {
@@ -207,7 +223,7 @@
 					<input 
 						bind:this={inputRef}
 						type="text" 
-						placeholder="Ketik NIP (contoh: 198...) atau Nama lengkap pegawai..." 
+						placeholder="Ketik NIP (semua status) atau Nama (khusus pegawai aktif)..." 
 						bind:value={search}
 						oninput={handleSearchInput}
 						onkeydown={(e) => {
@@ -235,8 +251,19 @@
 					<span>
 						{#if search && hasSearched}
 							Ditemukan <strong class="text-indigo-600 dark:text-indigo-400 font-semibold">{total} pegawai</strong> untuk "{search}"
+							{#if !isNipQuery(search)}
+								<span class="text-emerald-600 dark:text-emerald-400 font-medium ml-1.5 inline-flex items-center gap-1">
+									<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+									Khusus Pegawai Aktif
+								</span>
+							{:else}
+								<span class="text-indigo-600 dark:text-indigo-400 font-medium ml-1.5 inline-flex items-center gap-1">
+									<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+									Pencarian NIP
+								</span>
+							{/if}
 						{:else}
-							Ketik minimal 1 karakter untuk mencari otomatis
+							Ketik NIP atau Nama pegawai untuk mencari otomatis
 						{/if}
 					</span>
 					<span class="hidden sm:inline">Tekan <kbd class="px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded font-mono text-[10px]">Esc</kbd> untuk keluar</span>
@@ -283,7 +310,11 @@
 								Petunjuk
 							</div>
 							<p class="text-[11px] text-zinc-500 dark:text-zinc-400">
-								Pastikan NIP (18 digit tanpa spasi) atau ejaan Nama pegawai yang dimasukkan sudah benar dan terdaftar dalam database.
+								{#if isNipQuery(search)}
+									Pastikan NIP (18 digit tanpa spasi) yang dimasukkan sudah benar dan terdaftar dalam database.
+								{:else}
+									Pencarian berdasarkan <strong>Nama</strong> hanya menampilkan pegawai berstatus <strong>aktif</strong>. Untuk mencari pegawai non-aktif atau telah pensiun, Anda <strong>wajib mencari menggunakan NIP</strong>.
+								{/if}
 							</p>
 						</div>
 					</div>
@@ -478,7 +509,7 @@
 					</div>
 				{:else}
 					<div class="flex items-center justify-between w-full text-[11px] text-zinc-400">
-						<span>Pencarian realtime berdasarkan NIP atau Nama pegawai</span>
+						<span>Pencarian Nama khusus pegawai aktif. Pegawai non-aktif/pensiun harus dicari menggunakan NIP.</span>
 						<span class="hidden sm:inline">Navigasi: <kbd class="px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded font-mono text-[10px]">Esc</kbd> Tutup</span>
 					</div>
 				{/if}

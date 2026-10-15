@@ -98,7 +98,8 @@
 					children: [
 						{ name: 'Daftar Urut Kepangkatan', path: '/laporan/duk' },
 						{ name: 'Statistik Kepegawaian', path: '/laporan/statistik' },
-						{ name: 'Estimasi Pensiun (BUP)', path: '/laporan/pensiun' }
+						{ name: 'Estimasi Pensiun (BUP)', path: '/laporan/pensiun' },
+						{ name: 'Rekapitulasi', path: '/laporan/rekapitulasi' }
 					]
 				}
 			]

@@ -242,8 +242,9 @@
 			}
 
 			uploadResult = data.data;
-			toast.success(`Berhasil mengimport ${data.data.insertedCount} data PNS!`);
+			toast.success(`Berhasil mengimport ${data.data.insertedCount} data PNS (data lama telah digantikan)!`);
 			selectedFile = null;
+			selectedBatch = '';
 			page = 1;
 			rekapPage = 1;
 			rekapJenisPage = 1;
@@ -458,7 +459,7 @@
 					<span class="flex h-2.5 w-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
 					Upload File CSV Baru
 				</h3>
-				<p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Mendukung otomatis pemisah koma (,) atau pipa (|) standar BKN</p>
+				<p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Mendukung otomatis pemisah koma (,) atau pipa (|). Data lama akan otomatis digantikan oleh data hasil import baru.</p>
 			</div>
 			{#if summary.recentBatches && summary.recentBatches.length > 0}
 				<div class="flex items-center gap-2">
