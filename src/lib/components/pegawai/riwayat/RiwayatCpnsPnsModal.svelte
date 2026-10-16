@@ -1,4 +1,5 @@
 <script>
+	import { untrack } from 'svelte';
 	import { api } from '$lib/utils/api.js';
 	import { toastStore } from '$lib/stores/toastStore.js';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -55,7 +56,7 @@
 		return found ? (found.id || found.kdGol) : '';
 	}
 
-	async function loadReferensi() {
+	async function loadReferensi(currentItem) {
 		if (refGolongan && refGolongan.length > 0) return;
 		if (internalRefGolongan.length > 0) return;
 
@@ -64,12 +65,12 @@
 			const res = await api('/pegawai/referensi/golongan');
 			if (res?.data?.golongan) {
 				internalRefGolongan = res.data.golongan || [];
-				if (item && !gol_id) {
-					gol_id = item.gol_id || (item.golongan ? findKdGolByGol(item.golongan) : '');
+				if (currentItem && !gol_id) {
+					gol_id = currentItem.gol_id || (currentItem.golongan ? findKdGolByGol(currentItem.golongan) : '');
 				}
 			}
 		} catch (err) {
-			console.error('Gagal memuat referensi golongan', err);
+			// Abaikan kegagalan load referensi latar belakang
 		} finally {
 			loadingRef = false;
 		}
@@ -127,49 +128,56 @@
 		return '';
 	}
 
+	function initForm(targetItem) {
+		errorMessage = '';
+		fileDokumen = null;
+		if (fileInputRef) fileInputRef.value = '';
+		loadReferensi(targetItem);
+
+		if (targetItem) {
+			// Edit mode
+			spns_id = String(targetItem.spns_id || (targetItem.status_pns?.includes('CPNS') ? '1' : '2'));
+			sk = targetItem.sk && targetItem.sk !== '-' ? targetItem.sk : '';
+			tglsk = toDateInputVal(targetItem.tglsk || targetItem.tgl_sk);
+			tmtsk = toDateInputVal(targetItem.tmtsk || targetItem.tmt_sk);
+			gol_id = targetItem.gol_id ? String(targetItem.gol_id) : (targetItem.golongan ? findKdGolByGol(targetItem.golongan) : '');
+			maskerThn = targetItem.maskerThn !== undefined && targetItem.maskerThn !== null && targetItem.maskerThn !== '-' ? String(targetItem.maskerThn) : '';
+			maskerBln = targetItem.maskerBln !== undefined && targetItem.maskerBln !== null && targetItem.maskerBln !== '-' ? String(targetItem.maskerBln) : '';
+			pertekBkn = targetItem.pertekBkn || (targetItem.pertek_bkn && targetItem.pertek_bkn !== '-' ? targetItem.pertek_bkn : '');
+			tglPertekBkn = toDateInputVal(targetItem.tglPertekBkn || targetItem.tgl_pertek);
+			sttpl = targetItem.sttpl && targetItem.sttpl !== '-' ? targetItem.sttpl : '';
+			tglsttpl = toDateInputVal(targetItem.tglsttpl || targetItem.tgl_sttpl);
+			noKarpeg = targetItem.noKarpeg || (targetItem.no_karpeg && targetItem.no_karpeg !== '-' ? targetItem.no_karpeg : '');
+			tglKarpeg = toDateInputVal(targetItem.tglKarpeg || targetItem.tgl_karpeg);
+			penanda_tangan = targetItem.penanda_tangan && targetItem.penanda_tangan !== '-' ? targetItem.penanda_tangan : '';
+			existingDokumenUrl = targetItem.dokumen_sk || null;
+		} else {
+			// Create mode
+			spns_id = '1';
+			sk = '';
+			tglsk = '';
+			tmtsk = '';
+			gol_id = '';
+			maskerThn = '';
+			maskerBln = '';
+			pertekBkn = '';
+			tglPertekBkn = '';
+			sttpl = '';
+			tglsttpl = '';
+			noKarpeg = '';
+			tglKarpeg = '';
+			penanda_tangan = '';
+			existingDokumenUrl = null;
+		}
+	}
+
 	// Reset / Load form values saat modal dibuka
 	$effect(() => {
 		if (open) {
-			errorMessage = '';
-			fileDokumen = null;
-			if (fileInputRef) fileInputRef.value = '';
-			loadReferensi();
-
-			if (item) {
-				// Edit mode
-				spns_id = String(item.spns_id || (item.status_pns?.includes('CPNS') ? '1' : '2'));
-				sk = item.sk && item.sk !== '-' ? item.sk : '';
-				tglsk = toDateInputVal(item.tglsk || item.tgl_sk);
-				tmtsk = toDateInputVal(item.tmtsk || item.tmt_sk);
-				gol_id = item.gol_id ? String(item.gol_id) : (item.golongan ? findKdGolByGol(item.golongan) : '');
-				maskerThn = item.maskerThn !== undefined && item.maskerThn !== null && item.maskerThn !== '-' ? String(item.maskerThn) : '';
-				maskerBln = item.maskerBln !== undefined && item.maskerBln !== null && item.maskerBln !== '-' ? String(item.maskerBln) : '';
-				pertekBkn = item.pertekBkn || (item.pertek_bkn && item.pertek_bkn !== '-' ? item.pertek_bkn : '');
-				tglPertekBkn = toDateInputVal(item.tglPertekBkn || item.tgl_pertek);
-				sttpl = item.sttpl && item.sttpl !== '-' ? item.sttpl : '';
-				tglsttpl = toDateInputVal(item.tglsttpl || item.tgl_sttpl);
-				noKarpeg = item.noKarpeg || (item.no_karpeg && item.no_karpeg !== '-' ? item.no_karpeg : '');
-				tglKarpeg = toDateInputVal(item.tglKarpeg || item.tgl_karpeg);
-				penanda_tangan = item.penanda_tangan && item.penanda_tangan !== '-' ? item.penanda_tangan : '';
-				existingDokumenUrl = item.dokumen_sk || null;
-			} else {
-				// Create mode
-				spns_id = '1';
-				sk = '';
-				tglsk = '';
-				tmtsk = '';
-				gol_id = '';
-				maskerThn = '';
-				maskerBln = '';
-				pertekBkn = '';
-				tglPertekBkn = '';
-				sttpl = '';
-				tglsttpl = '';
-				noKarpeg = '';
-				tglKarpeg = '';
-				penanda_tangan = '';
-				existingDokumenUrl = null;
-			}
+			const currentItem = item;
+			untrack(() => {
+				initForm(currentItem);
+			});
 		}
 	});
 
