@@ -8,6 +8,7 @@
 	import ErrorState from '$lib/components/feedback/ErrorState.svelte';
 	import EmptyState from '$lib/components/feedback/EmptyState.svelte';
 	import SyncPendidikanModal from '$lib/components/data-matching/SyncPendidikanModal.svelte';
+	import ImportPegawaiModal from '$lib/components/data-matching/ImportPegawaiModal.svelte';
 
 	// State Utama
 	let loading = $state(false);
@@ -83,15 +84,33 @@
 	// State Checkbox Selection untuk Bulk Sync Golongan
 	let selectedNips = $state([]);
 	let eligibleGolonganItems = $derived(items.filter((r) => r.mismatches?.includes('golongan')));
+	let eligibleOnlySiasnItems = $derived(items.filter((r) => r.status === 'only_siasn'));
+	let eligibleSelectableItems = $derived(
+		items.filter((r) => r.mismatches?.includes('golongan') || r.status === 'only_siasn')
+	);
 	let isAllSelected = $derived(
-		eligibleGolonganItems.length > 0 &&
-		eligibleGolonganItems.every((r) => selectedNips.includes(r.nip))
+		eligibleSelectableItems.length > 0 &&
+		eligibleSelectableItems.every((r) => selectedNips.includes(r.nip))
+	);
+
+	let selectedGolMismatchCount = $derived(
+		items.filter((r) => selectedNips.includes(r.nip) && r.mismatches?.includes('golongan')).length
+	);
+	let selectedOnlySiasnCount = $derived(
+		items.filter((r) => selectedNips.includes(r.nip) && r.status === 'only_siasn').length
 	);
 
 	// State Modal Sync Golongan (Single & Bulk)
 	let isSyncConfirmOpen = $state(false);
 	let syncLoading = $state(false);
 	let syncTargets = $state([]); // [{ nip, nama, gol_lama, gol_baru }]
+
+	// State Modal Masukkan Pegawai dari SIASN ke Database Lokal (Single & Bulk)
+	let isImportPegawaiModalOpen = $state(false);
+	let isImportSingleModalOpen = $state(false);
+	let importSingleNip = $state('');
+	let importPegawaiLoading = $state(false);
+	let importPegawaiTargets = $state([]); // [{ nip, nama, gol, pend, tgl_lhr, status_kepegawaian }]
 
 	// State Modal Sync Pendidikan
 	let isSyncPendidikanOpen = $state(false);
@@ -356,7 +375,7 @@
 
 	// Selection Handlers
 	function toggleSelectAll() {
-		const eligible = eligibleGolonganItems.map((r) => r.nip);
+		const eligible = eligibleSelectableItems.map((r) => r.nip);
 		if (isAllSelected) {
 			selectedNips = selectedNips.filter((n) => !eligible.includes(n));
 		} else {
@@ -438,6 +457,86 @@
 			toastStore.error(err.message || 'Gagal melakukan sinkronisasi golongan');
 		} finally {
 			syncLoading = false;
+		}
+	}
+
+	// Masukkan Pegawai SIASN -> Database Lokal (ta_orang & ta_pegawai)
+	function openImportSingleModal(r) {
+		importSingleNip = r.nip;
+		isImportSingleModalOpen = true;
+	}
+
+	async function handleImportSingleSuccess() {
+		await Promise.all([loadData(), loadStatsOnly()]);
+		if (isDetailOpen && selectedDetail) {
+			openDetailModal(selectedDetail.nip);
+		}
+	}
+
+	function openImportBulkModal() {
+		const eligible = items.filter((r) => selectedNips.includes(r.nip) && r.status === 'only_siasn');
+		if (eligible.length === 0) {
+			toastStore.warning('Pilih pegawai yang berstatus Hanya di SIASN');
+			return;
+		}
+		if (eligible.length === 1) {
+			openImportSingleModal(eligible[0]);
+			return;
+		}
+		importPegawaiTargets = eligible.map((r) => ({
+			nip: r.nip,
+			nama: r.siasn?.nama || r.siasn?.nama_lengkap || r.nama || '-',
+			golongan: r.siasn?.golongan || '-',
+			pendidikan: r.siasn?.pendidikan || '-',
+			status_kepegawaian: r.siasn?.status_kepegawaian || 'PNS',
+			tempat_lahir: r.siasn?.tempat_lahir || '-',
+			tanggal_lahir: r.siasn?.tanggal_lahir || '-',
+		}));
+		isImportPegawaiModalOpen = true;
+	}
+
+	async function executeImportPegawai() {
+		if (importPegawaiTargets.length === 0) return;
+		importPegawaiLoading = true;
+		try {
+			const nips = importPegawaiTargets.map((t) => t.nip);
+			const res = await api('/data-matching/sync/import-pegawai', {
+				method: 'POST',
+				body: JSON.stringify({ nips }),
+			});
+
+			const result = res?.data || {};
+			const importedCount = result.imported_count || 0;
+			const failedCount = result.failed_count || 0;
+
+			let msg = `Impor selesai: ${importedCount} pegawai berhasil dimasukkan ke database lokal (ta_orang & ta_pegawai)`;
+			if (failedCount > 0) {
+				const failedItems = result.results?.filter((r) => r.status === 'FAILED') || [];
+				const firstReason = failedItems[0]?.alasan ? ` (${failedItems[0].alasan})` : '';
+				msg += `, ${failedCount} gagal${firstReason}`;
+			}
+
+			if (importedCount > 0 && failedCount === 0) {
+				toastStore.success(msg);
+			} else if (importedCount > 0 && failedCount > 0) {
+				toastStore.warning(msg);
+			} else {
+				toastStore.error(msg);
+			}
+
+			isImportPegawaiModalOpen = false;
+			importPegawaiTargets = [];
+			selectedNips = [];
+
+			await Promise.all([loadData(), loadStatsOnly()]);
+
+			if (isDetailOpen && selectedDetail) {
+				openDetailModal(selectedDetail.nip);
+			}
+		} catch (err) {
+			toastStore.error(err.message || 'Gagal memasukkan data pegawai ke database lokal');
+		} finally {
+			importPegawaiLoading = false;
 		}
 	}
 
@@ -1192,9 +1291,9 @@
 					</div>
 				</div>
 
-				<!-- Bulk Action Toolbar jika ada pegawai selisih terpilih -->
+				<!-- Bulk Action Toolbar jika ada pegawai selisih atau only_siasn terpilih -->
 				{#if selectedNips.length > 0}
-					<div class="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 rounded-xl px-4 py-2.5 text-xs text-indigo-900 dark:text-indigo-200 animate-in fade-in">
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 rounded-xl px-4 py-2.5 text-xs text-indigo-900 dark:text-indigo-200 animate-in fade-in">
 						<div class="flex items-center gap-2">
 							<span class="font-bold">{selectedNips.length} pegawai terpilih</span>
 							<span class="text-indigo-400">|</span>
@@ -1206,14 +1305,29 @@
 								Batalkan pilihan
 							</button>
 						</div>
-						<Button
-							variant="primary"
-							onclick={openSyncBulkModal}
-							class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5"
-						>
-							<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-							<span>Sinkronkan Golongan Terpilih ({selectedNips.length})</span>
-						</Button>
+						<div class="flex items-center gap-2 flex-wrap">
+							{#if selectedOnlySiasnCount > 0}
+								<Button
+									variant="primary"
+									onclick={openImportBulkModal}
+									class="text-xs bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5"
+								>
+									<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+									<span>Masukkan ({selectedOnlySiasnCount}) Pegawai ke Lokal</span>
+								</Button>
+							{/if}
+
+							{#if selectedGolMismatchCount > 0}
+								<Button
+									variant="primary"
+									onclick={openSyncBulkModal}
+									class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5"
+								>
+									<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+									<span>Sinkronkan Golongan Terpilih ({selectedGolMismatchCount})</span>
+								</Button>
+							{/if}
+						</div>
 					</div>
 				{/if}
 			{/if}
@@ -1541,9 +1655,9 @@
 										type="checkbox"
 										checked={isAllSelected}
 										onchange={toggleSelectAll}
-										disabled={eligibleGolonganItems.length === 0}
+										disabled={eligibleSelectableItems.length === 0}
 										class="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer disabled:opacity-30"
-										title="Pilih Semua yang Selisih Golongan"
+										title="Pilih Semua yang Selisih Golongan atau Hanya di SIASN"
 									/>
 								</th>
 								<th class="py-3 px-3 w-10 text-center">No</th>
@@ -1570,13 +1684,13 @@
 								<tr class="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40 transition-colors group {selectedNips.includes(r.nip) ? 'bg-indigo-50/40 dark:bg-indigo-950/20' : ''}">
 									<!-- Checkbox -->
 									<td class="py-3 px-2 text-center">
-										{#if hasGolMismatch}
+										{#if hasGolMismatch || isOnlySiasn}
 											<input
 												type="checkbox"
 												checked={selectedNips.includes(r.nip)}
 												onchange={() => toggleSelectRow(r.nip)}
 												class="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-												title="Pilih untuk sinkronisasi golongan"
+												title={isOnlySiasn ? "Pilih untuk masukkan ke database lokal" : "Pilih untuk sinkronisasi golongan"}
 											/>
 										{:else}
 											<span class="text-zinc-200 dark:text-zinc-700">-</span>
@@ -1596,14 +1710,14 @@
 										<div class="space-y-0.5">
 											<div class="flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200">
 												<span class="px-1 py-0.2 rounded text-[9px] font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">Lokal</span>
-												<span class="font-semibold {r.mismatches.includes('nama') ? 'text-amber-700 dark:text-amber-400' : ''}">
-													{r.local?.nama_lengkap || '-'}
+												<span class="font-semibold {r.mismatches.includes('nama') ? 'text-amber-700 dark:text-amber-400 font-bold' : ''}" title={r.local?.nama_lengkap || r.local?.nama || ''}>
+													{r.local?.nama || r.local?.nama_lengkap || '-'}
 												</span>
 											</div>
 											<div class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
 												<span class="px-1 py-0.2 rounded text-[9px] font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">SIASN</span>
-												<span class="{r.mismatches.includes('nama') ? 'text-amber-700 dark:text-amber-400' : ''}">
-													{r.siasn?.nama_lengkap || '-'}
+												<span class="{r.mismatches.includes('nama') ? 'text-amber-700 dark:text-amber-400 font-bold' : ''}" title={r.siasn?.nama_lengkap || r.siasn?.nama || ''}>
+													{r.siasn?.nama || r.siasn?.nama_lengkap || '-'}
 												</span>
 											</div>
 										</div>
@@ -1718,6 +1832,17 @@
 									<!-- Aksi -->
 									<td class="py-3 px-3 text-center">
 										<div class="flex items-center justify-center gap-1">
+											{#if isOnlySiasn}
+												<button
+													type="button"
+													onclick={() => openImportSingleModal(r)}
+													class="p-1.5 rounded-lg text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/60 transition-colors cursor-pointer"
+													title="Masukkan Data Pegawai ini ke Database Lokal (ta_orang & ta_pegawai)"
+												>
+													<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+												</button>
+											{/if}
+
 											{#if hasGolMismatch}
 												<button
 													type="button"
@@ -1863,6 +1988,45 @@
 						<EmptyState message="Data komparasi tidak ditemukan." />
 					</div>
 				{:else}
+					<!-- Banner Masukkan Pegawai Baru ke Lokal jika hanya ada di SIASN -->
+					{#if !selectedDetail.has_local && selectedDetail.has_siasn}
+						<div class="mb-4 p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in">
+							<div class="flex items-center gap-2.5 text-purple-900 dark:text-purple-200">
+								<div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+									<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+								</div>
+								<div>
+									<div class="font-bold">Pegawai Hanya Terdaftar di SIASN BKN</div>
+									<div class="text-[11px] text-purple-700 dark:text-purple-300 mt-0.5">
+										Data pegawai ini belum ada di Database Lokal SIPASN. Anda dapat langsung memasukkannya ke tabel <strong>ta_orang</strong> dan <strong>ta_pegawai</strong> secara otomatis.
+									</div>
+								</div>
+							</div>
+							<Button
+								variant="primary"
+								onclick={() => {
+									closeDetailModal();
+									openImportSingleModal({
+										nip: selectedDetail.nip,
+										siasn: {
+											nama: selectedDetail.siasn_raw?.nama,
+											nama_lengkap: [selectedDetail.siasn_raw?.gelar_depan, selectedDetail.siasn_raw?.nama, selectedDetail.siasn_raw?.gelar_belakang].filter(Boolean).join(' ').trim(),
+											golongan: selectedDetail.siasn_raw?.gol_akhir_nama,
+											pendidikan: selectedDetail.siasn_raw?.pendidikan_nama,
+											status_kepegawaian: selectedDetail.siasn_raw?.status_cpns_pns === 'C' ? 'CPNS' : 'PNS',
+											tempat_lahir: selectedDetail.siasn_raw?.tempat_lahir,
+											tanggal_lahir: selectedDetail.siasn_raw?.tanggal_lahir,
+										},
+									});
+								}}
+								class="text-xs bg-purple-600 hover:bg-purple-700 text-white shrink-0 flex items-center gap-1.5"
+							>
+								<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+								<span>+ Masukkan ke Database Lokal</span>
+							</Button>
+						</div>
+					{/if}
+
 					<!-- Banner Sinkronisasi Golongan jika terdapat perbedaan -->
 					{#if selectedDetail.fields?.find((f) => (f.key === 'golongan' || f.label === 'Golongan') && !f.is_same)}
 						{@const golField = selectedDetail.fields.find((f) => f.key === 'golongan' || f.label === 'Golongan')}
@@ -1885,11 +2049,11 @@
 									openSyncSingleModal({
 										nip: selectedDetail.nip,
 										local: {
-											nama_lengkap: selectedDetail.fields?.find((f) => f.key === 'nama' || f.label === 'Nama')?.local,
+											nama_lengkap: selectedDetail.fields?.find((f) => f.key === 'nama' || f.label?.includes('Nama'))?.local,
 											golongan: golField.local,
 										},
 										siasn: {
-											nama_lengkap: selectedDetail.fields?.find((f) => f.key === 'nama' || f.label === 'Nama')?.siasn,
+											nama_lengkap: selectedDetail.fields?.find((f) => f.key === 'nama' || f.label?.includes('Nama'))?.siasn,
 											golongan: golField.siasn,
 										},
 									});
@@ -2088,6 +2252,123 @@
 				>
 					<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
 					<span>Ya, Sinkronkan Data</span>
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- 1.1 Modal Konfirmasi Masukkan Pegawai dari SIASN ke Database Lokal (ta_orang & ta_pegawai) -->
+{#if isImportPegawaiModalOpen}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+		role="dialog"
+		aria-modal="true"
+		tabindex="-1"
+		onclick={(e) => { if (e.target === e.currentTarget && !importPegawaiLoading) isImportPegawaiModalOpen = false; }}
+	>
+		<div class="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200/80 dark:border-zinc-800 overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+			<!-- Modal Header -->
+			<div class="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-3 shrink-0 bg-purple-50/50 dark:bg-purple-950/20">
+				<div class="flex items-center gap-2.5">
+					<div class="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-900/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+						<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+					</div>
+					<div>
+						<h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+							Masukkan Pegawai ke Database Lokal
+						</h3>
+						<p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+							Membentuk data <strong>ta_orang</strong> dan <strong>ta_pegawai</strong> dari data SIASN BKN
+						</p>
+					</div>
+				</div>
+				<button
+					type="button"
+					disabled={importPegawaiLoading}
+					onclick={() => { isImportPegawaiModalOpen = false; }}
+					class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer disabled:opacity-40"
+					aria-label="Tutup"
+				>
+					<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+				</button>
+			</div>
+
+			<!-- Modal Body -->
+			<div class="p-5 space-y-4 text-xs">
+				<p class="text-zinc-600 dark:text-zinc-300">
+					Apakah Anda yakin ingin memasukkan <strong>{importPegawaiTargets.length} pegawai</strong> berikut ke Database Lokal SIPASN?
+				</p>
+
+				<!-- Daftar Pegawai Sasaran -->
+				<div class="max-h-56 overflow-y-auto space-y-2 pr-1">
+					{#each importPegawaiTargets as t}
+						<div class="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700 flex items-center justify-between gap-3">
+							<div class="space-y-0.5">
+								<div class="font-bold text-zinc-900 dark:text-zinc-100">{t.nama}</div>
+								<div class="font-mono text-[11px] text-zinc-500">{t.nip}</div>
+								<div class="text-[10px] text-zinc-400">
+									Lahir: {t.tempat_lahir || '-'}, {t.tanggal_lahir || '-'}
+								</div>
+							</div>
+							<div class="flex flex-col items-end gap-1 shrink-0 text-right">
+								<div class="flex items-center gap-1">
+									<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
+										{t.status_kepegawaian}
+									</span>
+									<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
+										{t.golongan}
+									</span>
+								</div>
+								<span class="text-[10px] text-zinc-500 max-w-[150px] truncate" title={t.pendidikan}>
+									{t.pendidikan}
+								</span>
+							</div>
+						</div>
+					{/each}
+				</div>
+
+				<!-- Info Alur Proses -->
+				<div class="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 text-purple-900 dark:text-purple-200 space-y-1.5">
+					<div class="font-bold flex items-center gap-1.5">
+						<svg class="w-4 h-4 text-purple-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+						<span>Operasi yang akan dieksekusi secara atomik:</span>
+					</div>
+					<ol class="list-decimal list-inside space-y-0.5 pl-1 text-[11px] text-purple-800 dark:text-purple-300">
+						<li>Membuat identitas diri pada tabel <strong>ta_orang</strong> (nama pokok tanpa gelar, NIK, tempat/tanggal lahir, jenis kelamin, agama, status perkawinan, dan email resmi).</li>
+						<li>Membuat record kepegawaian pada tabel <strong>ta_pegawai</strong> dengan status aktif (PNS/CPNS).</li>
+						<li>Membentuk riwayat golongan awal (<code>rwt_gol</code>) dan riwayat pendidikan awal (<code>rwt_pend</code>).</li>
+						<li>Menghubungkan nomor dan TMT SK CPNS/PNS ke tabel <code>ta_cpnspns</code>.</li>
+					</ol>
+				</div>
+
+				<div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 text-[11px] space-y-1">
+					<span class="font-bold">⚠️ Perhatian Konfirmasi Referensi Pendidikan:</span>
+					<p class="text-amber-800 dark:text-amber-300">
+						Impor massal hanya akan memproses pegawai yang referensi pendidikannya sudah cocok dengan tabel master (<code class="bg-amber-100 dark:bg-amber-900/60 px-1 py-0.5 rounded">ref_pend</code>). Untuk pegawai dengan jurusan baru, silakan gunakan tombol perorangan agar Anda dapat mengonfirmasi master referensi secara manual.
+					</p>
+				</div>
+			</div>
+
+			<!-- Modal Footer -->
+			<div class="px-5 py-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-end gap-2.5 shrink-0">
+				<Button
+					variant="secondary"
+					disabled={importPegawaiLoading}
+					onclick={() => { isImportPegawaiModalOpen = false; }}
+					class="text-xs"
+				>
+					Batal
+				</Button>
+
+				<Button
+					variant="primary"
+					loading={importPegawaiLoading}
+					onclick={executeImportPegawai}
+					class="text-xs bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5"
+				>
+					<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+					<span>Ya, Masukkan ke Database Lokal</span>
 				</Button>
 			</div>
 		</div>
@@ -2330,6 +2611,14 @@
 	nip={syncPendidikanNip}
 	onClose={() => { isSyncPendidikanOpen = false; syncPendidikanNip = ''; }}
 	onSuccess={handleSyncPendidikanSuccess}
+/>
+
+<!-- 5.1 Modal Konfirmasi Manual Masukkan Pegawai SIASN ke Database Lokal (Single) -->
+<ImportPegawaiModal
+	open={isImportSingleModalOpen}
+	nip={importSingleNip}
+	onClose={() => { isImportSingleModalOpen = false; importSingleNip = ''; }}
+	onSuccess={handleImportSingleSuccess}
 />
 
 <!-- 6. Modal Unggah Berkas Fisik Ijazah Pendidikan -->
