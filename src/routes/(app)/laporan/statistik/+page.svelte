@@ -20,6 +20,7 @@
 		if (selectedType === 'golongan') return `Golongan ${selectedItem.label}`;
 		if (selectedType === 'jabatan') return `Jenis Jabatan ${selectedItem.label}`;
 		if (selectedType === 'jenjang') return `Jenjang Jabatan ${selectedItem.label}`;
+		if (selectedType === 'rumpun') return `Rumpun Jabatan ${selectedItem.label}`;
 		return selectedItem.label;
 	});
 	let modalSubtitle = $derived(selectedItem ? `${selectedItem.count.toLocaleString('id-ID')} Pegawai Aktif` : '');
@@ -45,6 +46,7 @@
 			if (type === 'golongan') url += `&gol_id=${val}`;
 			if (type === 'jabatan') url += `&jnsJab_id=${val}`;
 			if (type === 'jenjang') url += `&jenjang_jab_id=${val}`;
+			if (type === 'rumpun') url += `&rumpun_jabatan=${val}`;
 			
 			const res = await api(url);
 			if (page === 1) {
@@ -105,7 +107,8 @@
 		{ id: 'golongan', label: 'Golongan Kepangkatan', icon: 'M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z' },
 		{ id: 'pendidikan', label: 'Tingkat Pendidikan', icon: 'M22 10v6M2 10l10-5 10 5-10 5z M6 12v5c3 3 10 3 12 0v-5' },
 		{ id: 'jabatan', label: 'Jenis Jabatan', icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75' },
-		{ id: 'jenjang', label: 'Jenjang Jabatan', icon: 'M12 2L2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5' }
+		{ id: 'jenjang', label: 'Jenjang Jabatan', icon: 'M12 2L2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5' },
+		{ id: 'rumpun', label: 'Guru, Kesehatan & Teknis', icon: 'M12 14l9-5-9-5-9 5 9 5z M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z' }
 	];
 </script>
 
@@ -511,6 +514,145 @@
 							<tfoot class="bg-zinc-50/90 dark:bg-zinc-800/80 border-t-2 border-zinc-200 dark:border-zinc-700 font-bold text-xs text-zinc-900 dark:text-zinc-100">
 								<tr>
 									<td colspan="2" class="px-5 py-3.5 text-right uppercase tracking-wider">Total Keseluruhan:</td>
+									<td class="px-5 py-3.5 font-black text-sm text-indigo-600 dark:text-indigo-400">
+										{stats.total.toLocaleString('id-ID')} Pegawai
+									</td>
+									<td class="px-5 py-3.5 text-center font-black">100%</td>
+									<td></td>
+								</tr>
+							</tfoot>
+						</table>
+					</div>
+				</div>
+
+			<!-- Tabel: Guru, Kesehatan & Teknis berdasarkan Jenis Kelamin -->
+			{:else if activeTab === 'rumpun'}
+				{@const totalPria = (stats.byRumpunJabatan || []).reduce((acc, r) => acc + (r.pria || 0), 0)}
+				{@const totalWanita = (stats.byRumpunJabatan || []).reduce((acc, r) => acc + (r.wanita || 0), 0)}
+				<div class="space-y-3" in:fade={{ duration: 150 }}>
+					<div class="overflow-x-auto rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 shadow-sm relative">
+						<table class="w-full text-left text-xs sm:text-sm">
+							<thead class="bg-zinc-50/80 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[10px] border-b border-zinc-200/80 dark:border-zinc-800">
+								<tr>
+									<th class="px-5 py-4 w-12 text-center">No</th>
+									<th class="px-5 py-4">Rumpun Jabatan</th>
+									<th class="px-5 py-4 w-52">Laki-Laki (Pria)</th>
+									<th class="px-5 py-4 w-52">Perempuan (Wanita)</th>
+									<th class="px-5 py-4 w-60">Total Pegawai</th>
+									<th class="px-5 py-4 text-center w-28">Persentase</th>
+									<th class="px-5 py-4 text-center w-28">Aksi</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+								{#each (stats.byRumpunJabatan || []) as rmp, idx}
+									{@const pct = stats.total > 0 ? (rmp.count / stats.total * 100).toFixed(1) : '0'}
+									{@const maxRmp = Math.max(...(stats.byRumpunJabatan || []).map(r => r.count))}
+									{@const isMax = rmp.count === maxRmp}
+									<tr class="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/30 transition-colors">
+										<td class="px-5 py-3.5 text-center font-mono text-xs text-zinc-400">
+											{idx + 1}
+										</td>
+										<td class="px-5 py-3.5">
+											<div class="flex items-center gap-2.5">
+												<div class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm
+													{rmp.id === 'guru' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 
+													 rmp.id === 'kesehatan' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 
+													 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'}">
+													{#if rmp.id === 'guru'}
+														<span>🎓</span>
+													{:else if rmp.id === 'kesehatan'}
+														<span>🏥</span>
+													{:else}
+														<span>⚙️</span>
+													{/if}
+												</div>
+												<div>
+													<div class="flex items-center gap-2">
+														<span class="font-bold text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm">{rmp.label}</span>
+														{#if isMax}
+															<span class="px-1.5 py-0.5 rounded bg-indigo-600 text-[9px] font-black text-white uppercase">Terbanyak</span>
+														{/if}
+													</div>
+													<span class="text-[10px] text-zinc-400 font-medium">
+														{rmp.id === 'guru' ? 'Tenaga Pendidik & Pengajar' : rmp.id === 'kesehatan' ? 'Tenaga Medis & Paramedis' : 'Struktural, Pelaksana & JF Teknis'}
+													</span>
+												</div>
+											</div>
+										</td>
+										<td class="px-5 py-3.5">
+											<div class="flex flex-col gap-1">
+												<div class="flex items-baseline justify-between text-xs">
+													<span class="font-black text-blue-600 dark:text-blue-400 tabular-nums">
+														{rmp.pria.toLocaleString('id-ID')}
+													</span>
+													<span class="text-[10px] font-semibold text-zinc-400">
+														{rmp.persentasePria}%
+													</span>
+												</div>
+												<div class="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+													<div
+														class="h-full rounded-full bg-blue-500 transition-all duration-500"
+														style="width: {rmp.persentasePria}%"
+													></div>
+												</div>
+											</div>
+										</td>
+										<td class="px-5 py-3.5">
+											<div class="flex flex-col gap-1">
+												<div class="flex items-baseline justify-between text-xs">
+													<span class="font-black text-rose-600 dark:text-rose-400 tabular-nums">
+														{rmp.wanita.toLocaleString('id-ID')}
+													</span>
+													<span class="text-[10px] font-semibold text-zinc-400">
+														{rmp.persentaseWanita}%
+													</span>
+												</div>
+												<div class="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+													<div
+														class="h-full rounded-full bg-rose-500 transition-all duration-500"
+														style="width: {rmp.persentaseWanita}%"
+													></div>
+												</div>
+											</div>
+										</td>
+										<td class="px-5 py-3.5">
+											<div class="flex items-center gap-3">
+												<span class="text-sm font-black text-zinc-900 dark:text-zinc-50 tabular-nums w-12">
+													{rmp.count.toLocaleString('id-ID')}
+												</span>
+												<div class="flex-1 h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+													<div
+														class="h-full rounded-full bg-indigo-600 transition-all duration-500"
+														style="width: {maxRmp > 0 ? (rmp.count / maxRmp * 100) : 0}%"
+													></div>
+												</div>
+											</div>
+										</td>
+										<td class="px-5 py-3.5 text-center font-semibold text-zinc-600 dark:text-zinc-400 tabular-nums">
+											{pct}%
+										</td>
+										<td class="px-5 py-3.5 text-center whitespace-nowrap">
+											<button
+												type="button"
+												onclick={() => openModal(rmp, 'rumpun')}
+												class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-xs font-bold transition-colors cursor-pointer"
+											>
+												Daftar
+												<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+											</button>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+							<tfoot class="bg-zinc-50/90 dark:bg-zinc-800/80 border-t-2 border-zinc-200 dark:border-zinc-700 font-bold text-xs text-zinc-900 dark:text-zinc-100">
+								<tr>
+									<td colspan="2" class="px-5 py-3.5 text-right uppercase tracking-wider">Total Keseluruhan:</td>
+									<td class="px-5 py-3.5 font-black text-xs text-blue-600 dark:text-blue-400">
+										{totalPria.toLocaleString('id-ID')} Pria ({stats.total > 0 ? (totalPria / stats.total * 100).toFixed(1) : 0}%)
+									</td>
+									<td class="px-5 py-3.5 font-black text-xs text-rose-600 dark:text-rose-400">
+										{totalWanita.toLocaleString('id-ID')} Wanita ({stats.total > 0 ? (totalWanita / stats.total * 100).toFixed(1) : 0}%)
+									</td>
 									<td class="px-5 py-3.5 font-black text-sm text-indigo-600 dark:text-indigo-400">
 										{stats.total.toLocaleString('id-ID')} Pegawai
 									</td>
