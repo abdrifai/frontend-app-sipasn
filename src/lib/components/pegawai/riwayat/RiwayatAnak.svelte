@@ -225,7 +225,7 @@
 	{pegawaiId}
 	item={selectedItem}
 	{riwayatPasangan}
-	onClose={() => showModal = false}
+	onClose={() => { showModal = false; selectedItem = null; }}
 	{onSuccess}
 />
 

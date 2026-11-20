@@ -8,6 +8,9 @@
 	import { api } from '$lib/utils/api.js';
 	import { toast } from '$lib/stores/toastStore';
 	import { onMount } from 'svelte';
+	import Combobox from '$lib/components/ui/Combobox.svelte';
+	import { downloadDukPdf, generateDukPdfBlob } from '$lib/utils/dukPdfGenerator.js';
+	import { fileToUint8Array, loadPdfJsDocument, renderPageThumbnail } from '$lib/utils/pdfHelper.js';
 
 	// Active Tab State: 'pegawai', 'rekap', or 'rekap-jenis'
 	let activeTab = $state('pegawai');
@@ -693,11 +696,342 @@
 			return str;
 		}
 	}
+
+	// ==========================================
+	// DUK HYBRID (SIASN + LOKAL) STATES & LOGIC
+	// ==========================================
+	let dukList = $state([]);
+	let dukLoading = $state(false);
+	let dukError = $state(null);
+	let dukSearch = $state('');
+	let dukSelectedUnorId = $state('');
+	let dukPage = $state(1);
+	let dukLimit = $state(15);
+	let dukTotalPages = $state(1);
+	let dukTotalRecords = $state(0);
+	let dukStats = $state({ total: 0, fromSiasn: 0, fromLocalOnly: 0, terpetakan_siasn: 0, hanya_lokal: 0 });
+	let dukUnorOptions = $state([]);
+	let dukLoadingOptions = $state(false);
+	let exportDukLoading = $state(false);
+
+	// State Pratinjau & Cetak PDF DUK
+	let showDukPdfModal = $state(false);
+	let dukPdfLoading = $state(false);
+	let dukDownloadingPdf = $state(false);
+	let dukGeneratingPreview = $state(false);
+	let dukPreviewPdfUrl = $state('');
+	let allDukData = $state([]);
+
+	// State Rendering Canvas PDF (Bebas dari Background Gelap Browser)
+	let dukPdfJsDoc = $state(null);
+	let dukTotalPreviewPages = $state(1);
+	let dukPreviewScale = $state(1.0);
+	let isRenderingDukCanvas = $state(false);
+	let dukCanvasRefs = {};
+
+	let dukReportOptions = $state({
+		tanggalCetak: new Date().toLocaleDateString('id-ID', {
+			day: 'numeric',
+			month: 'long',
+			year: 'numeric'
+		}),
+		tempat: 'Ampana',
+		penandatanganJabatan: 'Kepala Badan Kepegawaian dan Pengembangan SDM',
+		penandatanganNama: '',
+		penandatanganNip: ''
+	});
+
+	let selectedDukUnorName = $derived.by(() => {
+		const found = dukUnorOptions.find((o) => String(o.value) === String(dukSelectedUnorId));
+		return found ? found.label : (dukSelectedUnorId ? 'Unit Organisasi Terpilih' : 'Semua Unit Organisasi');
+	});
+
+	let visiblePreviewPages = $derived(Math.min(dukTotalPreviewPages, 30));
+
+	async function loadDukUnorOptions() {
+		if (dukUnorOptions.length > 0) return;
+		dukLoadingOptions = true;
+		try {
+			const res = await api('/ref-unor/induk?limit=1000&instansi_kode=7209&isAktif=1');
+			const opts = (res.data || []).map((item) => ({
+				value: String(item.id),
+				label: item.nmUnor
+			}));
+			dukUnorOptions = opts;
+		} catch (err) {
+			toast.error(err.message || 'Gagal memuat daftar unit organisasi');
+		} finally {
+			dukLoadingOptions = false;
+		}
+	}
+
+	async function loadDukData(newPage = 1) {
+		const targetPage = typeof newPage === 'number' ? newPage : 1;
+		dukPage = targetPage;
+		dukLoading = true;
+		dukError = null;
+
+		try {
+			const params = new URLSearchParams({
+				page: String(targetPage),
+				limit: String(dukLimit),
+				search: dukSearch || ''
+			});
+			if (dukSelectedUnorId) {
+				params.append('unorInduk_id', dukSelectedUnorId);
+			}
+
+			const res = await api(`/import-pns/duk?${params.toString()}`);
+			dukList = res.data || [];
+			dukTotalRecords = res.meta?.total || 0;
+			dukTotalPages = res.meta?.totalPages || 1;
+			const s = res.stats || {};
+			dukStats = {
+				total: Number(s.total) || 0,
+				fromSiasn: Number(s.fromSiasn ?? s.terpetakan_siasn) || 0,
+				fromLocalOnly: Number(s.fromLocalOnly ?? s.hanya_lokal) || 0,
+				terpetakan_siasn: Number(s.terpetakan_siasn ?? s.fromSiasn) || 0,
+				hanya_lokal: Number(s.hanya_lokal ?? s.fromLocalOnly) || 0,
+				per_golongan: s.per_golongan || {}
+			};
+		} catch (err) {
+			dukError = err.message || 'Gagal memuat data DUK Hybrid';
+		} finally {
+			dukLoading = false;
+		}
+	}
+
+	let dukSearchTimeout;
+	function handleDukSearchInput() {
+		clearTimeout(dukSearchTimeout);
+		dukSearchTimeout = setTimeout(() => {
+			dukPage = 1;
+			loadDukData(1);
+		}, 300);
+	}
+
+	async function handleExportDukExcel() {
+		exportDukLoading = true;
+		try {
+			const params = new URLSearchParams({
+				search: dukSearch || ''
+			});
+			if (dukSelectedUnorId) {
+				params.append('unorInduk_id', dukSelectedUnorId);
+			}
+
+			const res = await fetch(`${import.meta.env.VITE_API_URL}/import-pns/duk/export?${params.toString()}`, {
+				credentials: 'include'
+			});
+			if (!res.ok) throw new Error('Gagal mengunduh file Excel DUK');
+
+			const blob = await res.blob();
+			const url = window.URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			const cleanName = (selectedDukUnorName || 'DUK_SIASN').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
+			a.download = `DUK_SIASN_${cleanName}_${new Date().toISOString().split('T')[0]}.xlsx`;
+			document.body.appendChild(a);
+			a.click();
+			window.URL.revokeObjectURL(url);
+			document.body.removeChild(a);
+			toast.success('File Excel DUK Hybrid berhasil diunduh');
+		} catch (err) {
+			toast.error(err.message || 'Terjadi kesalahan saat mengunduh Excel');
+		} finally {
+			exportDukLoading = false;
+		}
+	}
+
+	function dukCanvasPageAction(node, pageNum) {
+		dukCanvasRefs[pageNum] = node;
+		if (dukPdfJsDoc) {
+			const targetWidth = Math.round(1050 * dukPreviewScale);
+			renderPageThumbnail(dukPdfJsDoc, pageNum, node, targetWidth, 0);
+		}
+		return {
+			update(newNum) {
+				dukCanvasRefs[newNum] = node;
+				if (dukPdfJsDoc) {
+					const targetWidth = Math.round(1050 * dukPreviewScale);
+					renderPageThumbnail(dukPdfJsDoc, newNum, node, targetWidth, 0);
+				}
+			},
+			destroy() {
+				delete dukCanvasRefs[pageNum];
+			}
+		};
+	}
+
+	async function renderAllDukPages() {
+		if (!dukPdfJsDoc) return;
+		isRenderingDukCanvas = true;
+		try {
+			const targetWidth = Math.round(1050 * dukPreviewScale);
+			const maxPages = Math.min(dukTotalPreviewPages, 30);
+			for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+				const canvas = dukCanvasRefs[pageNum];
+				if (canvas) {
+					await renderPageThumbnail(dukPdfJsDoc, pageNum, canvas, targetWidth, 0);
+				}
+			}
+		} catch {
+			// abaikan pembatalan
+		} finally {
+			isRenderingDukCanvas = false;
+		}
+	}
+
+	async function refreshDukPdfPreview() {
+		if (allDukData.length === 0) return;
+		dukGeneratingPreview = true;
+		try {
+			const { blob } = await generateDukPdfBlob(selectedDukUnorName, allDukData, {
+				...dukReportOptions,
+				includeDiklat: true
+			});
+			if (dukPreviewPdfUrl) {
+				window.URL.revokeObjectURL(dukPreviewPdfUrl);
+			}
+			dukPreviewPdfUrl = window.URL.createObjectURL(blob);
+
+			const bytes = await fileToUint8Array(blob);
+			const doc = await loadPdfJsDocument(bytes);
+			dukPdfJsDoc = doc;
+			dukTotalPreviewPages = doc.numPages || 1;
+			setTimeout(() => {
+				renderAllDukPages();
+			}, 50);
+		} catch (err) {
+			toast.error(err.message || 'Gagal menyusun pratinjau dokumen PDF');
+		} finally {
+			dukGeneratingPreview = false;
+		}
+	}
+
+	function handleDukZoomIn() {
+		dukPreviewScale = Math.min(2.0, +(dukPreviewScale + 0.15).toFixed(2));
+		renderAllDukPages();
+	}
+
+	function handleDukZoomOut() {
+		dukPreviewScale = Math.max(0.65, +(dukPreviewScale - 0.15).toFixed(2));
+		renderAllDukPages();
+	}
+
+	function handleDukZoomReset() {
+		dukPreviewScale = 1.0;
+		renderAllDukPages();
+	}
+
+	async function openDukPdfModal() {
+		if (!dukSelectedUnorId && !dukSearch) {
+			toast.error('Silakan pilih unit organisasi / satuan kerja terlebih dahulu');
+			return;
+		}
+
+		dukPdfLoading = true;
+		try {
+			const params = new URLSearchParams({
+				page: '1',
+				limit: '10000',
+				search: dukSearch || ''
+			});
+			if (dukSelectedUnorId) {
+				params.append('unorInduk_id', dukSelectedUnorId);
+			}
+
+			const res = await api(`/import-pns/duk?${params.toString()}`);
+			allDukData = res.data || [];
+			if (allDukData.length === 0) {
+				toast.error('Tidak ada data pegawai pada unit kerja yang dipilih');
+				return;
+			}
+			showDukPdfModal = true;
+			await refreshDukPdfPreview();
+		} catch (err) {
+			toast.error(err.message || 'Gagal memuat data untuk laporan PDF');
+		} finally {
+			dukPdfLoading = false;
+		}
+	}
+
+	function closeDukPdfModal() {
+		showDukPdfModal = false;
+		if (dukPreviewPdfUrl) {
+			window.URL.revokeObjectURL(dukPreviewPdfUrl);
+			dukPreviewPdfUrl = '';
+		}
+		dukPdfJsDoc = null;
+		dukCanvasRefs = {};
+	}
+
+	async function handleDownloadDukPdfDirect() {
+		if (allDukData.length === 0) return;
+		dukDownloadingPdf = true;
+		try {
+			await downloadDukPdf(selectedDukUnorName, allDukData, {
+				...dukReportOptions,
+				includeDiklat: true
+			});
+			toast.success('Berkas Laporan PDF DUK berhasil diunduh');
+		} catch (err) {
+			toast.error(err.message || 'Gagal menyusun berkas PDF');
+		} finally {
+			dukDownloadingPdf = false;
+		}
+	}
+
+	function handleDukPrintWindow() {
+		if (!dukPreviewPdfUrl) {
+			toast.error('Dokumen PDF belum siap, silakan tunggu beberapa saat...');
+			return;
+		}
+
+		// Buka dokumen PDF di tab/window baru untuk melihat dan mencetak dokumen resmi
+		const printWin = window.open(dukPreviewPdfUrl, '_blank');
+		if (printWin) {
+			printWin.focus();
+			toast.success('Membuka dokumen PDF resmi untuk dicetak');
+			return;
+		}
+
+		// Fallback jika popup diblokir peramban
+		let printIframe = document.getElementById('duk-hidden-print-iframe');
+		if (!printIframe) {
+			printIframe = document.createElement('iframe');
+			printIframe.id = 'duk-hidden-print-iframe';
+			printIframe.style.position = 'fixed';
+			printIframe.style.right = '0';
+			printIframe.style.bottom = '0';
+			printIframe.style.width = '0';
+			printIframe.style.height = '0';
+			printIframe.style.border = '0';
+			document.body.appendChild(printIframe);
+		}
+		printIframe.src = dukPreviewPdfUrl;
+		setTimeout(() => {
+			try {
+				printIframe.contentWindow?.focus();
+				printIframe.contentWindow?.print();
+			} catch {
+				handleDownloadDukPdfDirect();
+			}
+		}, 600);
+	}
+
+	function handleKeyDown(e) {
+		if (showDukPdfModal && e.key === 'Escape') {
+			closeDukPdfModal();
+		}
+	}
 </script>
 
 <svelte:head>
 	<title>Import & Rekap Data PNS | SIPASN</title>
 </svelte:head>
+
+<svelte:window onkeydown={handleKeyDown} />
 
 <div class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-16">
 	<!-- Top Banner / Header -->
@@ -942,6 +1276,18 @@
 		>
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
 			Data Statistik PNS (6 Rekap)
+		</button>
+		<button
+			type="button"
+			onclick={() => {
+				activeTab = 'duk';
+				loadDukUnorOptions();
+				if (dukList.length === 0) loadDukData(1);
+			}}
+			class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all {activeTab === 'duk' ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-md shadow-indigo-500/10' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'}"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+			Laporan DUK {dukTotalRecords > 0 ? `(${dukTotalRecords.toLocaleString('id-ID')})` : ''}
 		</button>
 	</div>
 
@@ -2993,6 +3339,281 @@
 			</div>
 		</div>
 	{/if}
+
+	<!-- TAB 5: LAPORAN DUK HYBRID (SIASN + LOKAL) -->
+	{#if activeTab === 'duk'}
+		<div class="space-y-6">
+			<!-- Header Banner & Penjelasan Hybrid Data -->
+			<div class="p-6 sm:p-8 rounded-[2.5rem] bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 text-white shadow-xl relative overflow-hidden border border-indigo-800/40">
+				<div class="absolute -right-10 -bottom-10 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+				<div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+					<div class="space-y-2 max-w-2xl">
+						<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold border border-indigo-400/30">
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+							Integrasi Data Terpadu (DUK Hybrid)
+						</div>
+						<h2 class="text-2xl sm:text-3xl font-black tracking-tight text-white">
+							Daftar Urut Kepangkatan (DUK) Pegawai
+						</h2>
+						<p class="text-xs sm:text-sm text-indigo-200/90 leading-relaxed">
+							Unit Kerja dihimpun dari <strong>Database Lokal</strong> (posisi SK aktif OPD), sedangkan Riwayat Golongan, Pangkat, TMT, Riwayat Pendidikan, dan Riwayat Diklat diambil dari <strong>Hasil Import SIASN BKN</strong> sebagai data termutakhir.
+						</p>
+					</div>
+					<div class="flex flex-wrap items-center gap-3 shrink-0">
+						<button
+							type="button"
+							onclick={handleExportDukExcel}
+							disabled={exportDukLoading || dukLoading}
+							class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 transition-all cursor-pointer disabled:opacity-50"
+						>
+							{#if exportDukLoading}
+								<span class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+								<span>Mengunduh...</span>
+							{:else}
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M10 9H8"/></svg>
+								<span>Export Excel DUK</span>
+							{/if}
+						</button>
+						<button
+							type="button"
+							onclick={openDukPdfModal}
+							disabled={dukPdfLoading || dukLoading}
+							class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-500 hover:bg-indigo-400 text-white shadow-lg shadow-indigo-900/30 transition-all cursor-pointer disabled:opacity-50"
+						>
+							{#if dukPdfLoading}
+								<span class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+								<span>Menyiapkan PDF...</span>
+							{:else}
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+								<span>Pratinjau / Cetak PDF</span>
+							{/if}
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- KPI Summary Cards -->
+			<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+				<div class="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+					<div class="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+					</div>
+					<div>
+						<p class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Total Pegawai DUK</p>
+						<p class="text-2xl font-black text-zinc-900 dark:text-zinc-50 mt-0.5">{(dukStats?.total || 0).toLocaleString('id-ID')}</p>
+					</div>
+				</div>
+
+				<div class="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+					<div class="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+					</div>
+					<div>
+						<p class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Terpadu dengan SIASN</p>
+						<p class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{(dukStats?.fromSiasn ?? dukStats?.terpetakan_siasn ?? 0).toLocaleString('id-ID')}</p>
+					</div>
+				</div>
+
+				<div class="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+					<div class="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+					</div>
+					<div>
+						<p class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Hanya Tercatat Lokal</p>
+						<p class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-0.5">{(dukStats?.fromLocalOnly ?? dukStats?.hanya_lokal ?? 0).toLocaleString('id-ID')}</p>
+					</div>
+				</div>
+			</div>
+
+			<!-- Filter & Pencarian Toolbar -->
+			<div class="p-6 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-sm space-y-4">
+				<div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+					<div class="md:col-span-6">
+						<label for="filter-duk-unor" class="block text-xs font-bold text-zinc-600 dark:text-zinc-300 mb-1.5">
+							Unit Organisasi / Satuan Kerja (Database Lokal)
+						</label>
+						<Combobox
+							id="filter-duk-unor"
+							options={dukUnorOptions}
+							bind:value={dukSelectedUnorId}
+							placeholder={dukLoadingOptions ? 'Memuat unit organisasi...' : 'Pilih Satuan Kerja / OPD...'}
+							onchange={(val) => { dukSelectedUnorId = val || ''; dukPage = 1; loadDukData(1); }}
+						/>
+					</div>
+
+					<div class="md:col-span-4">
+						<label for="filter-duk-search" class="block text-xs font-bold text-zinc-600 dark:text-zinc-300 mb-1.5">
+							Cari Pegawai (NIP / Nama / Jabatan)
+						</label>
+						<div class="relative group">
+							<div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-indigo-500 transition-colors">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+							</div>
+							<input
+								id="filter-duk-search"
+								type="text"
+								placeholder="Ketik NIP atau Nama..."
+								bind:value={dukSearch}
+								oninput={handleDukSearchInput}
+								class="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+							/>
+						</div>
+					</div>
+
+					<div class="md:col-span-2 flex items-center gap-2">
+						<button
+							type="button"
+							onclick={() => { dukPage = 1; loadDukData(1); }}
+							class="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 transition cursor-pointer"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M21 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+							<span>Muat Ulang</span>
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Tabel Data DUK Hybrid -->
+			<div class="rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-sm overflow-hidden">
+				{#if dukLoading}
+					<div class="p-12 flex justify-center">
+						<LoadingState message="Menyusun data DUK dari SIASN dan database lokal..." />
+					</div>
+				{:else if dukError}
+					<div class="p-8">
+						<ErrorState message={dukError} onRetry={() => loadDukData(dukPage)} />
+					</div>
+				{:else if dukList.length === 0}
+					<div class="p-12">
+						<EmptyState message="Tidak ditemukan pegawai DUK pada unit kerja ini." />
+					</div>
+				{:else}
+					<div class="overflow-x-auto">
+						<table class="w-full text-left text-xs sm:text-sm border-collapse">
+							<thead class="bg-zinc-50/80 dark:bg-zinc-800/50 text-zinc-500 uppercase tracking-wider font-bold text-[11px] border-b border-zinc-200/80 dark:border-zinc-800">
+								<tr>
+									<th class="py-3 px-3 w-12 text-center">No</th>
+									<th class="py-3 px-4 min-w-[200px]">Nama / NIP</th>
+									<th class="py-3 px-4 min-w-[150px]">Golongan & Pangkat (SIASN)</th>
+									<th class="py-3 px-4 min-w-[170px]">Jabatan & Eselon</th>
+									<th class="py-3 px-4 min-w-[150px]">Pendidikan (SIASN)</th>
+									<th class="py-3 px-4 min-w-[150px]">Diklat Terakhir</th>
+									<th class="py-3 px-4 min-w-[170px]">Unit Kerja (Lokal)</th>
+									<th class="py-3 px-3 text-center w-28">Sumber</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-zinc-100 dark:divide-zinc-800 font-medium">
+								{#each dukList as item, idx (item.nip)}
+									<tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition-colors">
+										<!-- No Urut -->
+										<td class="py-3 px-3 text-center font-mono text-zinc-400 font-bold">
+											{item.nomorUrut || (dukPage - 1) * dukLimit + idx + 1}
+										</td>
+
+										<!-- Nama & NIP -->
+										<td class="py-3 px-4">
+											<div class="font-bold text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm leading-snug">
+												{item.nama}
+											</div>
+											<div class="text-[11px] font-mono text-zinc-500 mt-0.5">
+												{item.nip}
+											</div>
+										</td>
+
+										<!-- Golongan / Pangkat & TMT -->
+										<td class="py-3 px-4">
+											<div class="font-bold text-indigo-600 dark:text-indigo-400 text-xs">
+												{item.golongan || item.pangkat_gol || '-'}
+											</div>
+											<div class="text-[11px] text-zinc-500 font-medium mt-0.5">
+												TMT: <span class="font-mono">{item.tmtGolongan || item.tmt_gol || '-'}</span>
+											</div>
+										</td>
+
+										<!-- Jabatan & Eselon -->
+										<td class="py-3 px-4">
+											<div class="text-zinc-800 dark:text-zinc-200 text-xs leading-snug">
+												{item.jabatan || '-'}
+											</div>
+											{#if item.eselon && item.eselon !== '-'}
+												<div class="mt-1">
+													<span class="inline-block px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400">
+														Eselon {item.eselon}
+													</span>
+												</div>
+											{/if}
+										</td>
+
+										<!-- Pendidikan -->
+										<td class="py-3 px-4">
+											<div class="text-zinc-700 dark:text-zinc-300 text-xs leading-snug">
+												{item.pendidikan || '-'}
+											</div>
+										</td>
+
+										<!-- Diklat Terakhir -->
+										<td class="py-3 px-4">
+											<div class="text-zinc-700 dark:text-zinc-300 text-xs leading-snug">
+												{item.diklat || '-'}
+											</div>
+										</td>
+
+										<!-- Unit Kerja Lokal -->
+										<td class="py-3 px-4">
+											<div class="text-zinc-600 dark:text-zinc-400 text-xs leading-snug">
+												{item.unitKerja || item.unit_kerja || '-'}
+											</div>
+										</td>
+
+										<!-- Badge Sumber -->
+										<td class="py-3 px-3 text-center">
+											{#if item.isFromSiasn || item.sumberData === 'SIASN + Lokal' || item.sumber_data === 'SIASN + Lokal'}
+												<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+													SIASN
+												</span>
+											{:else}
+												<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+													Lokal
+												</span>
+											{/if}
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+
+					<!-- Pagination Footer -->
+					<div class="p-4 sm:px-6 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-500">
+						<div>
+							Menampilkan <strong class="text-zinc-800 dark:text-zinc-200">{dukList.length}</strong> dari <strong class="text-zinc-800 dark:text-zinc-200">{dukTotalRecords.toLocaleString('id-ID')}</strong> pegawai
+						</div>
+						<div class="flex items-center gap-2">
+							<Button
+								variant="secondary"
+								disabled={dukPage <= 1 || dukLoading}
+								onclick={() => loadDukData(dukPage - 1)}
+								class="px-3 py-1.5 text-xs rounded-xl"
+							>
+								Sebelumnya
+							</Button>
+							<span class="font-bold text-zinc-700 dark:text-zinc-300 px-2">
+								Halaman {dukPage} dari {dukTotalPages}
+							</span>
+							<Button
+								variant="secondary"
+								disabled={dukPage >= dukTotalPages || dukLoading}
+								onclick={() => loadDukData(dukPage + 1)}
+								class="px-3 py-1.5 text-xs rounded-xl"
+							>
+								Selanjutnya
+							</Button>
+						</div>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
 </div>
 
 <!-- Modal Detail 71 Kolom PNS -->
@@ -3293,6 +3914,243 @@
 				<Button variant="secondary" onclick={() => { showDrilldownModal = false; }}>
 					Tutup
 				</Button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- ========================================================================= -->
+<!-- MODAL PRATINJAU DUK RESMI (PDF) DENGAN CONTINUOUS CANVAS SCROLL           -->
+<!-- ========================================================================= -->
+{#if showDukPdfModal}
+	<div 
+		class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div class="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-2xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden">
+			<!-- Header Modal -->
+			<div class="p-4 sm:px-7 border-b border-zinc-200/80 dark:border-zinc-800 flex items-center justify-between gap-4 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0">
+				<div>
+					<div class="flex items-center gap-2">
+						<span class="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+							<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+						</span>
+						<h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">Pratinjau Laporan DUK Resmi (PDF)</h2>
+						<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300">
+							{allDukData.length} Pegawai
+						</span>
+					</div>
+					<p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate max-w-xl">
+						Unit: <strong class="text-zinc-800 dark:text-zinc-200">{selectedDukUnorName}</strong>
+					</p>
+				</div>
+
+				<div class="flex items-center gap-2 sm:gap-3">
+					<button 
+						type="button"
+						onclick={closeDukPdfModal}
+						class="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+						title="Tutup Pratinjau (Esc)"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+					</button>
+				</div>
+			</div>
+
+			<!-- Pengaturan Penandatanganan Dokumen (Dapat disesuaikan) -->
+			<div class="p-3.5 px-6 bg-zinc-50 dark:bg-zinc-800/40 border-b border-zinc-200 dark:border-zinc-800 shrink-0 text-xs">
+				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+					<div>
+						<label for="duk-pdf-tgl" class="block font-semibold text-zinc-600 dark:text-zinc-300 mb-1">Tanggal Cetak</label>
+						<input 
+							id="duk-pdf-tgl"
+							type="text" 
+							bind:value={dukReportOptions.tanggalCetak}
+							onchange={refreshDukPdfPreview}
+							placeholder="Contoh: 2 November 2026"
+							class="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500"
+						/>
+					</div>
+					<div>
+						<label for="duk-pdf-tempat" class="block font-semibold text-zinc-600 dark:text-zinc-300 mb-1">Tempat</label>
+						<input 
+							id="duk-pdf-tempat"
+							type="text" 
+							bind:value={dukReportOptions.tempat}
+							onchange={refreshDukPdfPreview}
+							placeholder="Ampana"
+							class="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500"
+						/>
+					</div>
+					<div>
+						<label for="duk-pdf-jabatan" class="block font-semibold text-zinc-600 dark:text-zinc-300 mb-1">Jabatan Penandatangan</label>
+						<input 
+							id="duk-pdf-jabatan"
+							type="text" 
+							bind:value={dukReportOptions.penandatanganJabatan}
+							onchange={refreshDukPdfPreview}
+							placeholder="Jabatan Pejabat"
+							class="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500"
+						/>
+					</div>
+					<div>
+						<label for="duk-pdf-nama" class="block font-semibold text-zinc-600 dark:text-zinc-300 mb-1">Nama & NIP Pejabat</label>
+						<div class="flex gap-2">
+							<input 
+								id="duk-pdf-nama"
+								type="text" 
+								bind:value={dukReportOptions.penandatanganNama}
+								onchange={refreshDukPdfPreview}
+								placeholder="Nama Pejabat..."
+								class="w-1/2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500"
+							/>
+							<input 
+								type="text" 
+								bind:value={dukReportOptions.penandatanganNip}
+								onchange={refreshDukPdfPreview}
+								placeholder="NIP..."
+								class="w-1/2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+							/>
+						</div>
+					</div>
+					<div class="flex items-center">
+						<button
+							type="button"
+							onclick={refreshDukPdfPreview}
+							disabled={dukGeneratingPreview}
+							class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition disabled:opacity-50 cursor-pointer"
+							title="Perbarui dokumen PDF dengan opsi di atas"
+						>
+							{#if dukGeneratingPreview}
+								<span class="animate-spin h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full"></span>
+								<span>Menyusun...</span>
+							{:else}
+								<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+								<span>Perbarui PDF</span>
+							{/if}
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Lembar Kerja Dokumen PDF Resmi (1 Lembar Scroll Bersambung) -->
+			<div class="flex-1 p-3 sm:p-5 bg-zinc-100/80 dark:bg-zinc-900/40 flex flex-col min-h-0 overflow-hidden">
+				{#if dukGeneratingPreview}
+					<div class="flex-1 min-h-[480px] flex flex-col items-center justify-center bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-inner">
+						<span class="animate-spin h-9 w-9 border-4 border-indigo-600 border-t-transparent rounded-full mb-3"></span>
+						<span class="text-sm font-bold text-zinc-800 dark:text-zinc-200">Menyusun dokumen PDF resmi DUK...</span>
+						<span class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Mengalkulasi tata letak A4 Landscape & urutan nomor halaman</span>
+					</div>
+				{:else}
+					<!-- Sub-Toolbar: Keterangan Dokumen & Kontrol Zoom Lembar Kertas -->
+					<div class="flex flex-wrap items-center justify-between pb-3 px-1 text-xs shrink-0 gap-2">
+						<div class="flex items-center gap-2">
+							<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold text-xs">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+								{dukTotalPreviewPages} Lembar Dokumen (A4 Landscape)
+							</span>
+							<span class="text-zinc-500 dark:text-zinc-400 hidden sm:inline text-[11px]">
+								Seluruh lembar tersaji bersambung (cukup gulir ke bawah)
+							</span>
+						</div>
+
+						<!-- Kontrol Zoom -->
+						<div class="flex items-center gap-1.5">
+							<span class="text-[11px] text-zinc-400 mr-1 hidden sm:inline">Perbesaran:</span>
+							<button
+								type="button"
+								onclick={handleDukZoomOut}
+								title="Perkecil (-15%)"
+								class="w-7 h-7 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center font-bold hover:bg-zinc-50 dark:hover:bg-zinc-700 transition cursor-pointer"
+							>
+								-
+							</button>
+							<button
+								type="button"
+								onclick={handleDukZoomReset}
+								title="Reset Zoom (100%)"
+								class="px-2.5 h-7 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs font-mono font-semibold flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-700 transition cursor-pointer"
+							>
+								{Math.round(dukPreviewScale * 100)}%
+							</button>
+							<button
+								type="button"
+								onclick={handleDukZoomIn}
+								title="Perbesar (+15%)"
+								class="w-7 h-7 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center font-bold hover:bg-zinc-50 dark:hover:bg-zinc-700 transition cursor-pointer"
+							>
+								+
+							</button>
+						</div>
+					</div>
+
+					<!-- Viewport Lembar Canvas Bersih (1 Halaman Scroll Bersambung) -->
+					<div class="flex-1 overflow-auto rounded-2xl bg-zinc-200/50 dark:bg-zinc-950/80 p-4 sm:p-6 shadow-inner relative border border-zinc-200 dark:border-zinc-800 min-h-[460px]">
+						{#if isRenderingDukCanvas}
+							<div class="absolute inset-0 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xs flex items-center justify-center z-10">
+								<div class="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-800 rounded-lg shadow-sm text-xs font-semibold text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700">
+									<span class="animate-spin h-3.5 w-3.5 border-2 border-indigo-600 border-t-transparent rounded-full"></span>
+									<span>Merender seluruh lembar dokumen...</span>
+								</div>
+							</div>
+						{/if}
+
+						<div class="flex flex-col items-center gap-6 w-full max-w-5xl mx-auto">
+							{#if dukTotalPreviewPages > 30}
+								<div class="w-full p-3 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-semibold text-center">
+									Menampilkan 30 lembar pratinjau pertama (total {dukTotalPreviewPages} lembar). Untuk mencetak atau membaca seluruh lembar lengkap, klik tombol <strong>Unduh File PDF</strong> atau <strong>Buka di Tab Baru</strong>.
+								</div>
+							{/if}
+
+							{#each Array.from({ length: visiblePreviewPages }, (_, i) => i + 1) as pageNum (pageNum)}
+								<div class="flex flex-col items-center w-full">
+									{#if dukTotalPreviewPages > 1}
+										<div class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-1.5 self-start px-1 flex items-center gap-1.5">
+											<span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+											<span>Lembar {pageNum} dari {dukTotalPreviewPages}</span>
+										</div>
+									{/if}
+
+									<div class="bg-white shadow-2xl rounded-xl border border-zinc-300 overflow-hidden shrink-0 transition-all duration-150">
+										<canvas
+											use:dukCanvasPageAction={pageNum}
+											class="block max-w-full h-auto mx-auto"
+										></canvas>
+									</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Footer Modal & Tombol Aksi -->
+			<div class="p-4 sm:px-7 border-t border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-50/80 dark:bg-zinc-900/80 shrink-0">
+				<div class="text-xs text-zinc-500 dark:text-zinc-400">
+					Menyajikan seluruh <strong>{allDukData.length}</strong> pegawai DUK dalam urutan kepangkatan resmi.
+				</div>
+
+				<div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+					<Button variant="secondary" onclick={closeDukPdfModal}>
+						Tutup
+					</Button>
+
+					<Button variant="secondary" onclick={handleDukPrintWindow} class="gap-1.5">
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+						Cetak / Simpan PDF
+					</Button>
+
+					<Button variant="secondary" onclick={() => { if (dukPreviewPdfUrl) window.open(dukPreviewPdfUrl, '_blank'); }} class="gap-1.5 hidden sm:inline-flex">
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+						Buka di Tab Baru
+					</Button>
+
+					<Button variant="primary" onclick={handleDownloadDukPdfDirect} loading={dukDownloadingPdf} class="gap-1.5 shadow-sm">
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+						Unduh File PDF (.pdf)
+					</Button>
+				</div>
 			</div>
 		</div>
 	</div>

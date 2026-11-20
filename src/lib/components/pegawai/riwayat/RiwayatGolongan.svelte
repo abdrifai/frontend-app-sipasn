@@ -272,7 +272,7 @@
 	open={showModal}
 	{pegawaiId}
 	item={selectedItem}
-	onClose={() => { showModal = false; }}
+	onClose={() => { showModal = false; selectedItem = null; }}
 	onSuccess={onSuccess}
 />
 

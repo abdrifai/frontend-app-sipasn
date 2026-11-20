@@ -357,9 +357,19 @@
 		}
 	}
 
+	function handleClose() {
+		errorMessage = '';
+		fileDokumen = null;
+		if (fileInputRef) fileInputRef.value = '';
+		searchNip = '';
+		searchResults = [];
+		searchAttempted = false;
+		onClose();
+	}
+
 	function handleKeydown(e) {
 		if (e.key === 'Escape' && open) {
-			onClose();
+			handleClose();
 		}
 	}
 </script>
@@ -367,13 +377,12 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if open}
-	<!-- Modal Backdrop -->
+	<!-- Modal Backdrop (Tidak otomatis tertutup saat klik backdrop agar data form tidak hilang) -->
 	<div 
 		class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xs transition-opacity duration-200 animate-in fade-in"
 		role="dialog"
 		aria-modal="true"
 		tabindex="-1"
-		onclick={(e) => { if (e.target === e.currentTarget) onClose(); }}
 	>
 		<!-- Modal Container -->
 		<div class="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200/80 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] transition-all transform animate-in zoom-in-95 duration-150 mx-3 sm:mx-auto">
@@ -396,9 +405,11 @@
 
 				<button
 					type="button"
-					onclick={onClose}
+					onclick={handleClose}
+					disabled={loading}
 					class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
 					aria-label="Tutup Modal"
+					title="Tutup (Close)"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
 				</button>
@@ -911,7 +922,7 @@
 				<div class="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
 					<Button
 						variant="secondary"
-						onclick={onClose}
+						onclick={handleClose}
 						disabled={loading}
 					>
 						Batal

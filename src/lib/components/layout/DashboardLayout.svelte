@@ -13,10 +13,13 @@
 	const routeNames = {
 		'/dashboard': 'Dashboard',
 		'/pegawai': 'Data Pegawai',
+		'/pegawai-nonaktif': 'Pegawai Non-Aktif',
 		'/laporan/duk': 'Laporan DUK Pegawai',
 		'/laporan/statistik': 'Statistik Kepegawaian',
 		'/laporan/pensiun': 'Estimasi Pensiun (BUP)',
 		'/laporan/rekapitulasi': 'Rekapitulasi Kepegawaian',
+		'/laporan/pengangkatan': 'Laporan Pegawai Berdasarkan Tahun Pengangkatan (TMT CPNS)',
+		'/laporan/penugasan': 'Laporan Penugasan & Tugas Tambahan',
 		'/users': 'Manajemen Pengguna',
 		'/profile': 'Profil Pengguna',
 		'/ref-jabatan': 'Referensi Master Jabatan Terpadu',

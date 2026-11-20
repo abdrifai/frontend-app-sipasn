@@ -34,6 +34,11 @@
 		showModal = true;
 	}
 
+	function handleCloseModal() {
+		showModal = false;
+		selectedItem = null;
+	}
+
 	function openDeleteModal(cp) {
 		itemToDelete = cp;
 		showDeleteModal = true;
@@ -233,7 +238,7 @@
 	{pegawaiId}
 	item={selectedItem}
 	{refGolongan}
-	onClose={() => showModal = false}
+	onClose={handleCloseModal}
 	{onSuccess}
 />
 

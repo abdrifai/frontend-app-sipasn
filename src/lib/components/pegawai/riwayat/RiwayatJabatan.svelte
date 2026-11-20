@@ -131,6 +131,29 @@
 						<p class="text-xs text-zinc-600 dark:text-zinc-400 font-medium break-words">
 							{rj.unit_kerja}
 						</p>
+						{#if rj.is_tugas_tambahan}
+							<div class="mt-1.5 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 space-y-1 text-xs">
+								<div class="flex items-center gap-1.5 flex-wrap">
+									<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-600 text-white">
+										<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+										Tugas Tambahan {rj.is_tugas_tambahan_aktif ? '' : '(Non-Aktif)'}
+									</span>
+									<span class="font-bold text-amber-900 dark:text-amber-200 text-[11px]">
+										{rj.nama_tugas_tambahan || rj.jenis_tugas_tambahan || 'Penugasan'}
+									</span>
+								</div>
+								{#if rj.nama_unor_tugas_tambahan}
+									<p class="text-[11px] text-zinc-600 dark:text-zinc-300">
+										<span class="text-zinc-400">Lokasi:</span> {rj.nama_unor_tugas_tambahan}
+									</p>
+								{/if}
+								{#if rj.sk_tugas_tambahan}
+									<p class="text-[10px] text-zinc-500 font-mono">
+										SK: {rj.sk_tugas_tambahan} ({rj.tmt_tugas_tambahan || '-'})
+									</p>
+								{/if}
+							</div>
+						{/if}
 					</div>
 
 					<!-- Bottom Grid: TMT & SK -->
@@ -190,12 +213,23 @@
 					{#each riwayat as rj, idx}
 						<tr class="hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition-colors {idx === 0 ? 'bg-blue-50/15 dark:bg-blue-950/10' : ''}">
 							<td class="p-3">
-								<div class="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+								<div class="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 flex-wrap">
 									<span>{rj.nama_jabatan}</span>
 									{#if idx === 0}
 										<span class="px-1.5 py-0.2 text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 rounded-md">Aktif</span>
 									{/if}
 								</div>
+								{#if rj.is_tugas_tambahan}
+									<div class="mt-1 flex items-center gap-1.5 flex-wrap">
+										<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60">
+											<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+											Tugas Tambahan: {rj.nama_tugas_tambahan || rj.jenis_tugas_tambahan || 'Penugasan'}
+										</span>
+										{#if rj.nama_unor_tugas_tambahan}
+											<span class="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">({rj.nama_unor_tugas_tambahan})</span>
+										{/if}
+									</div>
+								{/if}
 							</td>
 							<td class="p-3 font-medium text-zinc-700 dark:text-zinc-300">{rj.unit_kerja}</td>
 							<td class="p-3">

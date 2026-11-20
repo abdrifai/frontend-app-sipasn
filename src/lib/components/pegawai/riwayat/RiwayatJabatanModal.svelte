@@ -29,6 +29,26 @@
 	let tmtPelantikan = $state('');
 	let pengesahan = $state('');
 
+	// Form states - Tugas Tambahan / Penugasan
+	let is_tugas_tambahan = $state(false);
+	let jenis_tugas_tambahan = $state('');
+	let nama_tugas_tambahan = $state('');
+	let unor_tugas_tambahan_id = $state('');
+	let sk_tugas_tambahan = $state('');
+	let tgl_sk_tugas_tambahan = $state('');
+	let tmt_tugas_tambahan = $state('');
+	let tmt_selesai_tugas_tambahan = $state('');
+	let is_tugas_tambahan_aktif = $state(true);
+
+	const jenisTugasTambahanOptions = [
+		{ value: 'KEPALA_SEKOLAH', label: 'Kepala Sekolah' },
+		{ value: 'KEPALA_PUSKESMAS', label: 'Kepala Puskesmas / Faskes' },
+		{ value: 'PLT', label: 'Pelaksana Tugas (Plt.)' },
+		{ value: 'PLH', label: 'Pelaksana Harian (Plh.)' },
+		{ value: 'KOORDINATOR', label: 'Koordinator / Subkoordinator' },
+		{ value: 'LAINNYA', label: 'Penugasan / Tugas Tambahan Lainnya' }
+	];
+
 	let fileDokumen = $state(null);
 	let existingDokumen = $state(null);
 	let fileInputRef = $state(null);
@@ -232,6 +252,15 @@
 				tmtPelantikan = toDateInputVal(item.tmtPelantikan || item.tmt_pelantikan);
 				pengesahan = item.pengesahan && item.pengesahan !== '-' ? item.pengesahan : '';
 				existingDokumen = item.dokumen_sk || null;
+				is_tugas_tambahan = Boolean(item.is_tugas_tambahan);
+				jenis_tugas_tambahan = item.jenis_tugas_tambahan || '';
+				nama_tugas_tambahan = item.nama_tugas_tambahan || '';
+				unor_tugas_tambahan_id = item.unor_tugas_tambahan_id || '';
+				sk_tugas_tambahan = item.sk_tugas_tambahan && item.sk_tugas_tambahan !== '-' ? item.sk_tugas_tambahan : '';
+				tgl_sk_tugas_tambahan = toDateInputVal(item.tglSkTugasTambahan || item.tgl_sk_tugas_tambahan);
+				tmt_tugas_tambahan = toDateInputVal(item.tmtTugasTambahan || item.tmt_tugas_tambahan);
+				tmt_selesai_tugas_tambahan = toDateInputVal(item.tmtSelesaiTugasTambahan || item.tmt_selesai_tugas_tambahan);
+				is_tugas_tambahan_aktif = item.is_tugas_tambahan_aktif !== false;
 			} else {
 				// Create mode (kosongkan)
 				jnsJab_id = '';
@@ -246,6 +275,15 @@
 				tmtPelantikan = '';
 				pengesahan = '';
 				existingDokumen = null;
+				is_tugas_tambahan = false;
+				jenis_tugas_tambahan = '';
+				nama_tugas_tambahan = '';
+				unor_tugas_tambahan_id = '';
+				sk_tugas_tambahan = '';
+				tgl_sk_tugas_tambahan = '';
+				tmt_tugas_tambahan = '';
+				tmt_selesai_tugas_tambahan = '';
+				is_tugas_tambahan_aktif = true;
 			}
 		}
 	});
@@ -411,6 +449,19 @@
 			if (pengesahan.trim()) formData.append('pengesahan', pengesahan.trim());
 			if (fileDokumen) formData.append('dokumen_sk', fileDokumen);
 
+			// Tugas Tambahan / Penugasan
+			formData.append('is_tugas_tambahan', is_tugas_tambahan ? 'true' : 'false');
+			if (is_tugas_tambahan) {
+				if (jenis_tugas_tambahan) formData.append('jenis_tugas_tambahan', jenis_tugas_tambahan);
+				if (nama_tugas_tambahan.trim()) formData.append('nama_tugas_tambahan', nama_tugas_tambahan.trim());
+				if (unor_tugas_tambahan_id) formData.append('unor_tugas_tambahan_id', unor_tugas_tambahan_id);
+				if (sk_tugas_tambahan.trim()) formData.append('sk_tugas_tambahan', sk_tugas_tambahan.trim());
+				if (tgl_sk_tugas_tambahan) formData.append('tgl_sk_tugas_tambahan', tgl_sk_tugas_tambahan);
+				if (tmt_tugas_tambahan) formData.append('tmt_tugas_tambahan', tmt_tugas_tambahan);
+				if (tmt_selesai_tugas_tambahan) formData.append('tmt_selesai_tugas_tambahan', tmt_selesai_tugas_tambahan);
+				formData.append('is_tugas_tambahan_aktif', is_tugas_tambahan_aktif ? 'true' : 'false');
+			}
+
 			if (item?.id) {
 				// Update
 				await api(`/pegawai/${pegawaiId}/riwayat-jabatan/${item.id}`, {
@@ -437,9 +488,16 @@
 		}
 	}
 
+	function handleClose() {
+		errorMessage = '';
+		fileDokumen = null;
+		if (fileInputRef) fileInputRef.value = '';
+		onClose();
+	}
+
 	function handleKeydown(e) {
 		if (e.key === 'Escape' && open) {
-			onClose();
+			handleClose();
 		}
 	}
 </script>
@@ -447,13 +505,12 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if open}
-	<!-- Modal Backdrop -->
+	<!-- Modal Backdrop (Tidak otomatis tertutup saat klik backdrop agar data form tidak hilang) -->
 	<div 
 		class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xs transition-opacity duration-200 animate-in fade-in"
 		role="dialog"
 		aria-modal="true"
 		tabindex="-1"
-		onclick={(e) => { if (e.target === e.currentTarget) onClose(); }}
 	>
 		<!-- Modal Container -->
 		<div class="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200/80 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] transition-all transform animate-in zoom-in-95 duration-150 mx-3 sm:mx-auto">
@@ -476,9 +533,11 @@
 
 				<button
 					type="button"
-					onclick={onClose}
+					onclick={handleClose}
+					disabled={loading}
 					class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
 					aria-label="Tutup Modal"
+					title="Tutup (Close)"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
 				</button>
@@ -659,6 +718,160 @@
 					/>
 				</div>
 
+				<!-- Section: Tugas Tambahan / Penugasan Khusus -->
+				<div class="pt-3 border-t border-zinc-200/80 dark:border-zinc-800 space-y-3">
+					<div class="flex items-center justify-between p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40">
+						<div class="space-y-0.5">
+							<div class="flex items-center gap-2">
+								<span class="w-2 h-2 rounded-full bg-amber-500"></span>
+								<label for="toggle_tugas_tambahan" class="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+									Tugas Tambahan / Penugasan Khusus
+								</label>
+							</div>
+							<p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+								Untuk Kepala Sekolah, Kepala Puskesmas, Plt., Plh., tanpa mengubah jabatan definitif pokok ASN.
+							</p>
+						</div>
+						<label class="relative inline-flex items-center cursor-pointer shrink-0">
+							<input 
+								id="toggle_tugas_tambahan"
+								type="checkbox" 
+								bind:checked={is_tugas_tambahan}
+								class="sr-only peer"
+								disabled={loading}
+							/>
+							<div class="w-10 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+						</label>
+					</div>
+
+					{#if is_tugas_tambahan}
+						<div class="p-3.5 rounded-xl bg-amber-50/30 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-900/30 space-y-3.5 animate-fadeIn">
+							<!-- Baris 1: Jenis Tugas Tambahan & Status Aktif -->
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								<div class="space-y-1">
+									<label for="jenis_tugas_tambahan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+										Jenis Tugas Tambahan <span class="text-rose-500">*</span>
+									</label>
+									<select
+										id="jenis_tugas_tambahan"
+										bind:value={jenis_tugas_tambahan}
+										disabled={loading}
+										class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+									>
+										<option value="">-- Pilih Jenis Tugas Tambahan --</option>
+										{#each jenisTugasTambahanOptions as opt}
+											<option value={opt.value}>{opt.label}</option>
+										{/each}
+									</select>
+								</div>
+
+								<div class="space-y-1">
+									<label for="is_tugas_tambahan_aktif" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+										Status Penugasan
+									</label>
+									<select
+										id="is_tugas_tambahan_aktif"
+										value={is_tugas_tambahan_aktif ? "true" : "false"}
+										onchange={(e) => is_tugas_tambahan_aktif = e.target.value === "true"}
+										disabled={loading}
+										class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+									>
+										<option value="true">Masih Aktif Menjabat</option>
+										<option value="false">Selesai / Non-Aktif</option>
+									</select>
+								</div>
+							</div>
+
+							<!-- Baris 2: Nama / Jabatan Tugas Tambahan -->
+							<div class="space-y-1">
+								<label for="nama_tugas_tambahan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+									Nama Tugas Tambahan / Deskripsi Penugasan
+								</label>
+								<input 
+									id="nama_tugas_tambahan"
+									type="text"
+									placeholder="Contoh: Kepala SMP Negeri 1 Banggai / Plt. Kepala Dinas Kesehatan"
+									bind:value={nama_tugas_tambahan}
+									disabled={loading}
+									class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+								/>
+							</div>
+
+							<!-- Baris 3: Unit Kerja Penugasan (Tree Select) -->
+							<div class="space-y-1">
+								<UnorTreeSelect 
+									tree={refUnorTree}
+									flatOptions={unorOptions}
+									bind:value={unor_tugas_tambahan_id}
+									label="Unit Organisasi / Satuan Kerja Penugasan (Opsional)"
+									placeholder="Pilih lokasi satuan kerja tempat penugasan..."
+									required={false}
+									disabled={loading || loadingRef}
+								/>
+							</div>
+
+							<!-- Baris 4: No SK & Tanggal SK Tugas Tambahan -->
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								<div class="space-y-1">
+									<label for="sk_tugas_tambahan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+										Nomor SK Tugas Tambahan
+									</label>
+									<input 
+										id="sk_tugas_tambahan"
+										type="text"
+										placeholder="Nomor SK Penugasan / SPMT..."
+										bind:value={sk_tugas_tambahan}
+										disabled={loading}
+										class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+									/>
+								</div>
+
+								<div class="space-y-1">
+									<label for="tgl_sk_tugas_tambahan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+										Tanggal SK Tugas Tambahan
+									</label>
+									<input 
+										id="tgl_sk_tugas_tambahan"
+										type="date"
+										bind:value={tgl_sk_tugas_tambahan}
+										disabled={loading}
+										class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+									/>
+								</div>
+							</div>
+
+							<!-- Baris 5: TMT Mulai & Selesai Penugasan -->
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								<div class="space-y-1">
+									<label for="tmt_tugas_tambahan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+										TMT Mulai Penugasan
+									</label>
+									<input 
+										id="tmt_tugas_tambahan"
+										type="date"
+										bind:value={tmt_tugas_tambahan}
+										disabled={loading}
+										class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+									/>
+								</div>
+
+								<div class="space-y-1">
+									<label for="tmt_selesai_tugas_tambahan" class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+										TMT Selesai Penugasan (Opsional)
+									</label>
+									<input 
+										id="tmt_selesai_tugas_tambahan"
+										type="date"
+										bind:value={tmt_selesai_tugas_tambahan}
+										disabled={loading}
+										class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+									/>
+								</div>
+							</div>
+						</div>
+					{/if}
+				</div>
+
 				<!-- Section: Upload Dokumen SK Jabatan -->
 				<div class="space-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
 					<div class="flex items-center justify-between">
@@ -725,7 +938,7 @@
 				<div class="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
 					<Button
 						variant="secondary"
-						onclick={onClose}
+						onclick={handleClose}
 						disabled={loading}
 					>
 						Batal

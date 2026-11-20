@@ -293,9 +293,17 @@
 		}
 	}
 
+	function handleClose() {
+		if (loading) return;
+		errorMessage = '';
+		selectedFile = null;
+		if (fileInputRef) fileInputRef.value = '';
+		onClose();
+	}
+
 	function handleKeyDown(e) {
 		if (e.key === 'Escape' && open && !loading) {
-			onClose();
+			handleClose();
 		}
 	}
 </script>
@@ -303,12 +311,9 @@
 <svelte:window onkeydown={handleKeyDown} />
 
 {#if open}
-	<!-- Backdrop Overlay -->
+	<!-- Backdrop Overlay (Tidak otomatis tertutup saat klik backdrop agar data form tidak hilang) -->
 	<div 
 		class="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200"
-		onclick={(e) => {
-			if (e.target === e.currentTarget && !loading) onClose();
-		}}
 		role="presentation"
 	>
 		<!-- Modal Content Box -->
@@ -336,7 +341,7 @@
 
 				<button 
 					type="button"
-					onclick={onClose}
+					onclick={handleClose}
 					disabled={loading}
 					class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer disabled:opacity-50"
 					title="Tutup (Esc)"
@@ -600,7 +605,7 @@
 			<div class="p-4 sm:px-6 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/80 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 shrink-0">
 				<Button
 					variant="ghost"
-					onclick={onClose}
+					onclick={handleClose}
 					disabled={loading}
 				>
 					Batal

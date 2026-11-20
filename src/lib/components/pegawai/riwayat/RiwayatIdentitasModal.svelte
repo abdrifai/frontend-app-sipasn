@@ -257,9 +257,14 @@
 		}
 	}
 
+	function handleClose() {
+		errorMessage = '';
+		onClose();
+	}
+
 	function handleKeydown(e) {
 		if (e.key === 'Escape' && open) {
-			onClose();
+			handleClose();
 		}
 	}
 </script>
@@ -267,7 +272,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if open}
-	<!-- Modal Backdrop -->
+	<!-- Modal Backdrop (Tidak otomatis tertutup saat klik backdrop agar data form tidak hilang) -->
 	<div 
 		class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-zinc-900/60 backdrop-blur-xs animate-in fade-in duration-200"
 		role="dialog"
@@ -296,10 +301,11 @@
 
 				<button
 					type="button"
-					onclick={onClose}
+					onclick={handleClose}
 					disabled={loading}
 					class="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors cursor-pointer"
 					aria-label="Tutup modal"
+					title="Tutup (Close)"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
 				</button>
@@ -670,7 +676,7 @@
 				<div class="pt-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2.5">
 					<button
 						type="button"
-						onclick={onClose}
+						onclick={handleClose}
 						disabled={loading}
 						class="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 transition-all cursor-pointer"
 					>
